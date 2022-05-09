@@ -1,4 +1,4 @@
 ---
-apache_host: node1
-mariadb_host: node3
+apache_host: node3
+mariadb_host: node1
 reporting_host: node2

@@ -12,20 +12,32 @@
     state: started
     enabled: True
 
+- name: Create a password for the mysql root user
+  ansible.builtin.lineinfile:
+    path: /tmp/mysql-root-password
+    line: "{{ lookup('password', '/dev/null length=12 chars=ascii_letters,digits') }}"
+    create: yes
+
+- name: Create a password for the webapp user
+  ansible.builtin.lineinfile:
+    path: /tmp/mysql-webapp-password
+    line: "{{ lookup('password', '/dev/null length=12 chars=ascii_letters,digits') }}"
+    create: yes
+
 - name: Set the root pasword
   community.mysql.mysql_user:
     login_user: root
-    login_password: "{{ lookup('password', '/tmp/mysql-root-password length=12 chars=ascii_letters,digits') }}"
+    login_password: "{{lookup('file', '/tmp/mysql-root-password') }}"
     user: root
     check_implicit_admin: true
-    password: "{{ lookup('password', '/tmp/mysql-root-password length=12 chars=ascii_letters,digits') }}"
+    password: "{{lookup('file', '/tmp/mysql-root-password') }}"
     host: localhost
 
 - name: Create the application DB user
   community.mysql.mysql_user:
     login_user: root
-    login_password: "{{ lookup('password', '/tmp/mysql-root-password length=12 chars=ascii_letters,digits') }}"
+    login_password: "{{lookup('file', '/tmp/mysql-root-password') }}"
     name: webapp
-    password: "{{ lookup('password', '/tmp/mysql-webapp-password length=12 chars=ascii_letters,digits') }}"
+    password: "{{lookup('file', '/tmp/mysql-webapp-password') }}"
     priv: '*.*:ALL'
     state: present
