@@ -24,6 +24,15 @@
     line: "{{ lookup('password', '/dev/null length=12 chars=ascii_letters,digits') }}"
     create: yes
 
+- name: display the contents of mysql-root-password
+  debug: 
+    msg: "{{ lookup('file', '/tmp/mysql-root-password') }}"
+
+- name: display the contents of mysql-webapp-password
+  debug: 
+    msg: "{{ lookup('file', '/tmp/mysql-webapp-password') }}"
+
+
 - name: Set the root pasword
   community.mysql.mysql_user:
     login_user: root
@@ -31,7 +40,6 @@
     user: root
     check_implicit_admin: true
     password: "{{lookup('file', '/tmp/mysql-root-password') }}"
-    host: localhost
 
 - name: Create the application DB user
   community.mysql.mysql_user:
