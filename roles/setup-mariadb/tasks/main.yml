@@ -15,17 +15,17 @@
 - name: Set the root pasword
   community.mysql.mysql_user:
     login_user: root
-    login_password: "{{ lookup('password', '/var/ansible-security-workshop/mysql-root-password length=12 chars=ascii_letters,digits') }}"
+    login_password: "{{ lookup('password', '/tmp/mysql-root-password length=12 chars=ascii_letters,digits') }}"
     user: root
     check_implicit_admin: true
-    password: "{{ lookup('password', '/var/ansible-security-workshop/mysql-root-password length=12 chars=ascii_letters,digits') }}"
+    password: "{{ lookup('password', '/tmp/mysql-root-password length=12 chars=ascii_letters,digits') }}"
     host: localhost
 
 - name: Create the application DB user
   community.mysql.mysql_user:
     login_user: root
-    login_password: "{{ lookup('password', '/var/ansible-security-workshop/mysql-root-password length=12 chars=ascii_letters,digits') }}"
+    login_password: "{{ lookup('password', '/tmp/mysql-root-password length=12 chars=ascii_letters,digits') }}"
     name: webapp
-    password: "{{ lookup('password', '/var/ansible-security-workshop/mysql-webapp-password length=12 chars=ascii_letters,digits') }}"
+    password: "{{ lookup('password', '/tmp/mysql-webapp-password length=12 chars=ascii_letters,digits') }}"
     priv: '*.*:ALL'
     state: present
