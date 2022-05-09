@@ -8,11 +8,13 @@
 - name: Setup MariaDB
   hosts: "{{ mariadb_host }}"
   become: True
+  vars_files: vars/lab-setup.yml
   roles:
   - setup-mariadb
 
 - name: Setup Apache
   hosts: "{{ apache_host }}"
   become: True
+  vars_files: vars/lab-setup.yml
   roles:
   - setup-httpd
