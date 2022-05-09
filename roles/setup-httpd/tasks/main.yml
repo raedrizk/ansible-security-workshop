@@ -1,0 +1,5 @@
+--- 
+- name: Setup httpds
+  ansible.builtin.dnf:
+    name: httpd
+    state: present

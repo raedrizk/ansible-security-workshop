@@ -1,0 +1,15 @@
+---
+- name: All hosts prerequisites setup 
+  hosts: all
+  roles:
+  - setup-common
+
+- name: Setup MariaDB
+  hosts: "{{ mariadb_host }}"
+  roles:
+  - setup-mariadb
+
+- name: Setup Apache
+  hosts: "{{ apache_host }}"
+  roles:
+  - setup-apache

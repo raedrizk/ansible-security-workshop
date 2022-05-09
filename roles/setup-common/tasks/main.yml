@@ -1,0 +1,17 @@
+---
+- name: Stop and disbale firewalld
+  ansible.builtin.service:
+    name: firewalld
+    state: stopped
+    enabled: False
+
+- name: Enable auditd
+  ansible.builtin.dnf:
+    name: audit
+    state: latest
+
+- name: Start and enable auditd service
+  ansible.builtin.service:
+    name: auditd
+    state: started
+    enabled: True
