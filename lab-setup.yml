@@ -1,15 +1,18 @@
 ---
 - name: All hosts prerequisites setup 
   hosts: all
+  become: True
   roles:
   - setup-common
 
 - name: Setup MariaDB
   hosts: "{{ mariadb_host }}"
+  become: True
   roles:
   - setup-mariadb
 
 - name: Setup Apache
   hosts: "{{ apache_host }}"
+  become: True
   roles:
   - setup-httpd
