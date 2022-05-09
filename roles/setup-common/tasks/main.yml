@@ -4,6 +4,7 @@
     name: firewalld
     state: stopped
     enabled: False
+  ignore_errors: True
 
 - name: Enable auditd
   ansible.builtin.dnf:
