@@ -23,6 +23,8 @@
 
 - name: Create the application DB user
   community.mysql.mysql_user:
+    login_user: root
+    login_password: "{{ lookup('password', '/var/ansible-security-workshop/mysql-root-password length=12 chars=ascii_letters,digits') }}"
     name: webapp
     password: "{{ lookup('password', '/var/ansible-security-workshop/mysql-webapp-password length=12 chars=ascii_letters,digits') }}"
     priv: '*.*:ALL'
