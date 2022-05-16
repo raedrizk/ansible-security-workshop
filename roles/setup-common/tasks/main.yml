@@ -11,6 +11,7 @@
     name: audit
     state: latest
 
+# https://www.redhat.com/sysadmin/configure-linux-auditing-auditd ??
 - name: Start and enable auditd service
   ansible.builtin.service:
     name: auditd

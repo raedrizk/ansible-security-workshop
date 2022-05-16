@@ -1,0 +1,6 @@
+dev_inventory
+localhost_inventory
+ansible-navigator.yml
+ansible-navigator.v1
+logs/*
+artifacts/*

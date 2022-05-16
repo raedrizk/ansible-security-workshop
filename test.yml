@@ -1,0 +1,35 @@
+---
+- name: test
+  hosts: localhost
+  gather_facts: False
+  vars:
+    sampledata:
+    - name: test1
+      value: 1
+    - name: test2
+      value: 2
+    - name: test3
+      value: 3
+    - name: test4
+      value: 4
+    - name: test5
+      value: 5
+    - name: test6
+      value: 6
+    - name: test7
+      value: 7
+    - name: test8
+      value: 8
+    - name: test9
+      value: 9
+    - name: test10
+      value: 10
+  tasks:
+  - name: Set destination cluster for vserver
+    set_fact:
+      test_value: "{{ item.value }}"
+    loop: "{{ sampledata }}"
+  
+  - debug:
+     var: test_value
+
