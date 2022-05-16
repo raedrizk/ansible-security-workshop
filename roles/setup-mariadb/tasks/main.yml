@@ -12,11 +12,17 @@
     state: started
     enabled: True
 
+- name: Get stats of the password file to not overwrite
+  ansible.builtin.stat:
+    path: "{{ password_file }}"
+  register: password_file_stat
+
 - name: Create a password for the mysql accounts and write it to {{ password_file }} on the mariadb host
   ansible.builtin.lineinfile:
     path: "{{ password_file }}"
     line: "{{ lookup('password', '/dev/null length=12 chars=ascii_letters,digits') }}"
     create: yes
+  when: not password_file_stat.stat.exists
 
 - name: Read the generated password
   ansible.builtin.slurp:
@@ -39,3 +45,21 @@
     password: "{{ mysql_password['content'] | b64decode }}"
     priv: '*.*:ALL'
     state: present
+
+- name: create simple appp database
+  community.mysql.mysql_db:
+    login_user: webapp
+    login_password: "{{ mysql_password['content'] | b64decode }}"
+    name: webapp_db
+    state: present
+  
+- name: Run several insert queries against db test_db in single transaction
+  community.mysql.mysql_query:
+    login_user: webapp
+    login_password: "{{ mysql_password['content'] | b64decode }}"
+    login_db: webapp_db
+    query:
+    - CREATE TABLE IF NOT EXISTS webapp_db.INFO ( application_id INT AUTO_INCREMENT PRIMARY KEY, application_name VARCHAR(250) NOT NULL, application_version VARCHAR(20) NOT NULL);
+    - TRUNCATE TABLE webapp_db.INFO;
+    - INSERT INTO webapp_db.INFO (application_name, application_version) VALUES ('Security Workshop Application', '1.2.3');
+    single_transaction: yes
