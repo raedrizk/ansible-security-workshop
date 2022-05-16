@@ -12,30 +12,30 @@
     state: started
     enabled: True
 
-- name: Create a password for the mysql accounts and write it to {{ password-file }} on the mariadb host
+- name: Create a password for the mysql accounts and write it to {{ password_file }} on the mariadb host
   ansible.builtin.lineinfile:
-    path: "{{ password-file }}"
+    path: "{{ password_file }}"
     line: "{{ lookup('password', '/dev/null length=12 chars=ascii_letters,digits') }}"
     create: yes
 
 - name: Read the generated password
   ansible.builtin.slurp:
-    src: "{{ password-file }}"
-  register: mysql-password
+    src: "{{ password_file }}"
+  register: mysql_password
 
 - name: Set the root pasword
   community.mysql.mysql_user:
     login_user: root
-    login_password: "{{ mysql-password['content'] | b64decode }}"
+    login_password: "{{mysql_password['content'] | b64decode }}"
     user: root
     check_implicit_admin: true
-    password: "{{ mysql-password['content'] | b64decode }}"
+    password: "{{ mysql_password['content'] | b64decode }}"
 
 - name: Create the application DB user
   community.mysql.mysql_user:
     login_user: root
-    login_password: "{{ mysql-password['content'] | b64decode }}"
+    login_password: "{{ mysql_password['content'] | b64decode }}"
     name: webapp
-    password: "{{ mysql-password['content'] | b64decode }}"
+    password: "{{ mysql_password['content'] | b64decode }}"
     priv: '*.*:ALL'
     state: present

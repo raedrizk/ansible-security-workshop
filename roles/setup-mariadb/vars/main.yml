@@ -1,2 +1,2 @@
 ---
-password-file: /tmp/mysql-password
+password_file: /tmp/mysql-password
