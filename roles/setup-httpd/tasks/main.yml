@@ -1,5 +1,16 @@
 --- 
-- name: Setup httpds
+- name: Setup Apache, PHP and PHP Libraries
   ansible.builtin.dnf:
-    name: httpd
+    name: 
+    - httpd
+    - php 
+    - php-common
+    - php-mysqlnd 
+    - php-mbstring
     state: present
+
+- name: Start and enabble Apache Service
+  ansible.builtin.service:
+    name: httpd
+    state: started
+    enabled: True
