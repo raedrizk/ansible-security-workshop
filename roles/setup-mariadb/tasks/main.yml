@@ -29,67 +29,43 @@
     src: "{{ password_file }}"
   register: mysql_password
 
-- debug:
-    msg: "{{ mysql_password['content'] | b64decode | trim }}"
+- name: Setting host facts using complex arguments
+  ansible.builtin.set_fact:
+    webapp_password: "{{ mysql_password['content'] | b64decode | trim }}"
 
-- name: Set the root pasword
+- name: Set the root pasword to be the same as the webapp user password
   community.mysql.mysql_user:
     login_user: root
-    login_password: dummy
+    login_password: "{{ webapp_password }}"
     user: root
     check_implicit_admin: true
-    password: dummy
+    password: "{{ webapp_password }}"
 
 - name: Create the application DB user
   community.mysql.mysql_user:
     login_user: root
-    login_password: dummy
+    login_password: "{{ webapp_password }}"
     name: 'webapp'
     host: '%'
-    password: dummy
+    password: "{{ webapp_password }}"
     priv: '*.*:ALL'
     state: present
 
 - name: create simple appp database
   community.mysql.mysql_db:
     login_user: webapp
-    login_password: dummy
+    login_password: "{{ webapp_password }}"
     name: webapp_db
     state: present
   
 - name: Run several insert queries against db test_db in single transaction
   community.mysql.mysql_query:
     login_user: webapp
-    login_password: dummy
+    login_password: "{{ webapp_password }}"
     login_db: webapp_db
     query:
     - CREATE TABLE IF NOT EXISTS webapp_db.INFO ( application_id INT AUTO_INCREMENT PRIMARY KEY, application_name VARCHAR(250) NOT NULL, application_version VARCHAR(20) NOT NULL);
     - TRUNCATE TABLE webapp_db.INFO;
     - INSERT INTO webapp_db.INFO (application_name, application_version) VALUES ('Security Workshop Application', '1.2.3');
-    - FLUSH PRIVILEGES;
     single_transaction: yes
 
-- name: DEBUG GET USER
-  community.mysql.mysql_query:
-    login_user: root
-    login_password: dummy
-    query:
-    - SELECT user, host FROM mysql.user;
-  register: users
-
-- debug:
-    var: users
-
-
-
-# ENABLE ALL CLIENTSs udo vi /etc/my.cnf.d/mariadb-server.cnf
-
-# - name: Export password for Apache setup
-#   ansible.builtin.set_stats:
-#     data:
-#       webapp_password: "{{mysql_password['content'] | b64decode }}"
-
-- name: Setting host facts using complex arguments
-  ansible.builtin.set_fact:
-    webapp_password: dummy
-     
