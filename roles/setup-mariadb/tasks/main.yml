@@ -77,7 +77,7 @@
     login_user: root
     login_password: "{{ mysql_password['content'] | b64decode }}"
     query:
-    - SELECT host FROM mysql.user WHERE User = 'root';
+    - SELECT host FROM mysql.user;
   register: users
 
 - debug:
