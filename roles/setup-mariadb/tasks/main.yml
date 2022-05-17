@@ -35,32 +35,32 @@
 - name: Set the root pasword
   community.mysql.mysql_user:
     login_user: root
-    login_password: "{{mysql_password['content'] | b64decode }}"
+    login_password: dummy
     user: root
     check_implicit_admin: true
-    password: "{{ mysql_password['content'] | b64decode }}"
+    password: dummy
 
 - name: Create the application DB user
   community.mysql.mysql_user:
     login_user: root
-    login_password: "{{ mysql_password['content'] | b64decode }}"
+    login_password: dummy
     name: 'webapp'
     host: '%'
-    password: "{{ mysql_password['content'] | b64decode }}"
+    password: dummy
     priv: '*.*:ALL'
     state: present
 
 - name: create simple appp database
   community.mysql.mysql_db:
     login_user: webapp
-    login_password: "{{ mysql_password['content'] | b64decode }}"
+    login_password: dummy
     name: webapp_db
     state: present
   
 - name: Run several insert queries against db test_db in single transaction
   community.mysql.mysql_query:
     login_user: webapp
-    login_password: "{{ mysql_password['content'] | b64decode }}"
+    login_password: dummy
     login_db: webapp_db
     query:
     - CREATE TABLE IF NOT EXISTS webapp_db.INFO ( application_id INT AUTO_INCREMENT PRIMARY KEY, application_name VARCHAR(250) NOT NULL, application_version VARCHAR(20) NOT NULL);
@@ -72,7 +72,7 @@
 - name: DEBUG GET USER
   community.mysql.mysql_query:
     login_user: root
-    login_password: "{{ mysql_password['content'] | b64decode }}"
+    login_password: dummy
     query:
     - SELECT user, host FROM mysql.user;
   register: users
@@ -91,5 +91,5 @@
 
 - name: Setting host facts using complex arguments
   ansible.builtin.set_fact:
-    webapp_password: "{{mysql_password['content'] | b64decode }}"
+    webapp_password: dummy
      
