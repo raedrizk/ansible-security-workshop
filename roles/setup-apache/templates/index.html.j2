@@ -6,6 +6,10 @@ $username = "webapp";
 $password = "{{ hostvars['node2']['webapp_password'] }}";
 $dbname = "webapp_db";
 
+ echo "servername: " . $servername . "<br>";
+
+
+
 // Create connection
 $conn = new mysqli($servername, $username, $password, $dbname);
 // Check connection
