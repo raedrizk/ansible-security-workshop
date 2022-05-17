@@ -72,6 +72,21 @@
     - INSERT INTO webapp_db.INFO (application_name, application_version) VALUES ('Security Workshop Application', '1.2.3');
     single_transaction: yes
 
+- name: DEBUG GET USER
+  community.mysql.mysql_query:
+    login_user: root
+    login_password: "{{ mysql_password['content'] | b64decode }}"
+    query:
+    - SELECT host FROM mysql.user WHERE User = 'root';
+  register: users
+
+- debug:
+    var: users
+
+
+
+# ENABLE ALL CLIENTSs udo vi /etc/my.cnf.d/mariadb-server.cnf
+
 # - name: Export password for Apache setup
 #   ansible.builtin.set_stats:
 #     data:
