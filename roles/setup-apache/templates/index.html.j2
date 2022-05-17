@@ -3,7 +3,7 @@
 <?php
 $servername = "node2";
 $username = "webapp";
-$password = "{{ webapp_password }}";
+$password = "{{ hostvars['node2']['webapp_password'] }}";
 $dbname = "webapp_db";
 
 // Create connection
