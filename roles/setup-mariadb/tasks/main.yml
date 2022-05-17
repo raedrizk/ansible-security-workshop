@@ -63,6 +63,7 @@
     - CREATE TABLE IF NOT EXISTS webapp_db.INFO ( application_id INT AUTO_INCREMENT PRIMARY KEY, application_name VARCHAR(250) NOT NULL, application_version VARCHAR(20) NOT NULL);
     - TRUNCATE TABLE webapp_db.INFO;
     - INSERT INTO webapp_db.INFO (application_name, application_version) VALUES ('Security Workshop Application', '1.2.3');
+    - FLUSH PRIVILEGES;
     single_transaction: yes
 
 - name: DEBUG GET USER
@@ -70,7 +71,7 @@
     login_user: root
     login_password: "{{ mysql_password['content'] | b64decode }}"
     query:
-    - SELECT user, host FROM mysql.user where user = 'webapp';
+    - SELECT user, host FROM mysql.user;
   register: users
 
 - debug:
