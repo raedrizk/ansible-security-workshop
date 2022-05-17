@@ -6,6 +6,21 @@
     - python3-PyMySQL #Needed for the mysql_user module: https://docs.ansible.com/ansible/latest/collections/community/mysql/mysql_user_module.html
     state: present
 
+- name: Configure custom port and remote listening
+  ansible.builtin.blockinfile:
+    path: /etc/my.cnf.d/mariadb-server.cnf
+    insertafter: "#bind-address=0.0.0.0"
+    block: |
+      bind-address=0.0.0.0
+      port=3389
+
+- name: Allow MySQL to listen on tcp 3389 
+  community.general.seport:
+    ports: 3389
+    proto: tcp
+    setype: mysqld_port_t
+    state: present
+
 - name: Start and enabble MariaDB Service
   ansible.builtin.service:
     name: mariadb
