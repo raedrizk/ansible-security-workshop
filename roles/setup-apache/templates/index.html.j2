@@ -1,0 +1,30 @@
+<html>
+<body>
+<?php
+$servername = "node2";
+$username = "webapp";
+$password = "{{ webapp_password }}";
+$dbname = "webapp_db";
+
+// Create connection
+$conn = new mysqli($servername, $username, $password, $dbname);
+// Check connection
+if ($conn->connect_error) {
+  die("Connection failed: " . $conn->connect_error);
+}
+
+$sql = "SELECT application_name, application_version FROM webapp_db.INFO";
+$result = $conn->query($sql);
+
+if ($result->num_rows > 0) {
+  // output data of each row
+  while($row = $result->fetch_assoc()) {
+    echo "application_name: " . $row["application_name"]. " - application_version: " . $row["application_version"] ."<br>";
+  }
+} else {
+  echo "0 results";
+}
+$conn->close();
+?>
+</body>
+</html>

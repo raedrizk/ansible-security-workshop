@@ -63,3 +63,9 @@
     - TRUNCATE TABLE webapp_db.INFO;
     - INSERT INTO webapp_db.INFO (application_name, application_version) VALUES ('Security Workshop Application', '1.2.3');
     single_transaction: yes
+
+- name: Export password for Apache setup
+  ansible.builtin.set_stats:
+    data:
+      webapp_password: "{{mysql_password['content'] | b64decode }}"
+     

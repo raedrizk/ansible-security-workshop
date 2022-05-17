@@ -17,4 +17,4 @@
   become: True
   vars_files: vars/lab-setup.yml
   roles:
-  - setup-httpd
+  - setup-apache
