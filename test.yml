@@ -1,0 +1,11 @@
+---
+- name: test PIDS
+  hosts: localhost
+  tasks:
+  - name: Getting process IDs of the process
+    community.general.pids:
+        name: '*'
+    register: pids_of_python
+
+  - debug:
+      var: pids_of_python

@@ -1,0 +1,8 @@
+---
+- name: Collect log information
+  hosts: all
+  tasks:
+  - name: gather all logs
+    ansible.builtin.fetch:
+      src: /var/log/dnf.log
+      dest: /home/student10/prefix-{{ inventory_hostname }}
