@@ -50,6 +50,8 @@
 
 - name: Set the root pasword to be the same as the webapp user password
   community.mysql.mysql_user:
+    login_host: localhost
+    login_port: 3389
     login_user: root
     login_password: "{{ webapp_password }}"
     user: root
@@ -58,6 +60,8 @@
 
 - name: Create the application DB user
   community.mysql.mysql_user:
+    login_host: localhost
+    login_port: 3389
     login_user: root
     login_password: "{{ webapp_password }}"
     name: 'webapp'
@@ -68,6 +72,8 @@
 
 - name: create simple appp database
   community.mysql.mysql_db:
+    login_host: localhost
+    login_port: 3389
     login_user: webapp
     login_password: "{{ webapp_password }}"
     name: webapp_db
@@ -75,6 +81,8 @@
   
 - name: Run several insert queries against db test_db in single transaction
   community.mysql.mysql_query:
+    login_host: localhost
+    login_port: 3389
     login_user: webapp
     login_password: "{{ webapp_password }}"
     login_db: webapp_db
