@@ -64,8 +64,12 @@
     - INSERT INTO webapp_db.INFO (application_name, application_version) VALUES ('Security Workshop Application', '1.2.3');
     single_transaction: yes
 
-- name: Export password for Apache setup
-  ansible.builtin.set_stats:
-    data:
-      webapp_password: "{{mysql_password['content'] | b64decode }}"
+# - name: Export password for Apache setup
+#   ansible.builtin.set_stats:
+#     data:
+#       webapp_password: "{{mysql_password['content'] | b64decode }}"
+
+- name: Setting host facts using complex arguments
+  ansible.builtin.set_fact:
+    webapp_password: "{{mysql_password['content'] | b64decode }}"
      
