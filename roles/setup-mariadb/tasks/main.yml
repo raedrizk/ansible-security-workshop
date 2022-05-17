@@ -37,6 +37,14 @@
     check_implicit_admin: true
     password: "{{ mysql_password['content'] | b64decode }}"
 
+- name: Removes all anonymous user accounts
+  community.mysql.mysql_user:
+    login_user: root
+    login_password: "{{mysql_password['content'] | b64decode }}"
+    name: ''
+    host_all: yes
+    state: absent
+
 - name: Create the application DB user
   community.mysql.mysql_user:
     login_user: root
