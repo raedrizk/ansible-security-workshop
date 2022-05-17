@@ -17,5 +17,5 @@
 
 - name: copy idnex page
   ansible.builtin.template:
-    src: index.html.j2
-    dest: /var/www/html/index.html
+    src: index.php.j2
+    dest: /var/www/html/index.php
