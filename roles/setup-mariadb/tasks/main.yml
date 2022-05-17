@@ -30,7 +30,7 @@
   register: mysql_password
 
 - debug:
-    msg: "{{ mysql_password['content'] | b64decode }}"
+    msg: "{{ mysql_password['content'] | b64decode | trim }}"
 
 - name: Set the root pasword
   community.mysql.mysql_user:
