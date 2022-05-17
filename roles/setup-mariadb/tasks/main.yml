@@ -49,7 +49,7 @@
   community.mysql.mysql_user:
     login_user: root
     login_password: "{{ mysql_password['content'] | b64decode }}"
-    name: webapp
+    name: 'webapp@%'
     password: "{{ mysql_password['content'] | b64decode }}"
     priv: '*.*:ALL'
     state: present
