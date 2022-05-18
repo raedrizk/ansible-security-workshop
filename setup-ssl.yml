@@ -51,6 +51,11 @@
       line: SSLCertificateKeyFile /var/webapp/certificate.key
     notify: restart apache
     
+  - name: ensure that apache is running and enabled
+    ansible.builtin.service:
+      name: httpd
+      state: started
+      enabled: True   
 
   handlers:
   
