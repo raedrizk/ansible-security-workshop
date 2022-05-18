@@ -25,7 +25,7 @@
 
   - name: change context on cert file
     community.general.sefcontext:
-      target: /var/webapp/certificate.key
+      target: /var/webapp/certificate.cert
       setype: cert_t
     
   - name: Apply new SELinux file context to filesystem
