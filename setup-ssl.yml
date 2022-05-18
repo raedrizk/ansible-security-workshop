@@ -14,6 +14,41 @@
 
   - name: Create simple self-signed certificate
     community.crypto.x509_certificate:
-      path: /var/webapp/certificate.pem
+      path: /var/webapp/certificate.cert
       privatekey_path: /var/webapp/certificate.key
       provider: selfsigned
+
+  - name: Allow apache to modify files in /srv/git_repos
+    community.general.sefcontext:
+      target: '/var/webapp(/.*)?'
+      setype: cert_t
+      state: present
+
+  - name: Install mod_ssl 
+    ansible.builtin.dnf:
+      name: mod_ssl
+      state: latest
+    notify: restart_apache
+
+  - name: edit the ssl configuration file to point to the generated certificate
+    ansible.builtin.lineinfile:
+      path: /etc/httpd/conf.d/ssl.conf
+      regexp: '^SSLCertificateFile'
+      line: SSLCertificateFile /var/webapp/certificate.cert
+    notify: restart_apache
+
+  - name: edit the ssl configuration file to point to the generated key
+    ansible.builtin.lineinfile:
+      path: /etc/httpd/conf.d/ssl.conf
+      regexp: '^SSLCertificateKeyFile'
+      line: SSLCertificateKeyFile /var/webapp/certificate.key
+    notify: restart apache
+    
+
+  handlers:
+  
+  - name: restart apache
+    ansible.builtin.service:
+      name: httpd
+      state: restarted
+      enabled: True   
