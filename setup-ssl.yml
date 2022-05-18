@@ -28,14 +28,14 @@
     ansible.builtin.dnf:
       name: mod_ssl
       state: latest
-    notify: restart_apache
+    notify: restart apache
 
   - name: edit the ssl configuration file to point to the generated certificate
     ansible.builtin.lineinfile:
       path: /etc/httpd/conf.d/ssl.conf
       regexp: '^SSLCertificateFile'
       line: SSLCertificateFile /var/webapp/certificate.cert
-    notify: restart_apache
+    notify: restart apache
 
   - name: edit the ssl configuration file to point to the generated key
     ansible.builtin.lineinfile:
