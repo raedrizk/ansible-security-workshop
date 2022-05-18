@@ -27,6 +27,9 @@
     community.general.sefcontext:
       target: /var/webapp/certificate.key
       setype: cert_t
+    
+  - name: Apply new SELinux file context to filesystem
+    ansible.builtin.command: restorecon -irv /var/webapp/
 
   - name: Install mod_ssl 
     ansible.builtin.dnf:
