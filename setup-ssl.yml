@@ -1,0 +1,19 @@
+---
+- name: Configure SSL
+  hosts: node1
+  become: True
+  tasks:
+  - name: Create directory to hold key and cert
+    ansible.builtin.file:
+      path: /var/webapp
+      state: directory
+
+  - name: Create private key (RSA, 4096 bits)
+    community.crypto.openssl_privatekey:
+      path: /var/webapp/certificate.key
+
+  - name: Create simple self-signed certificate
+    community.crypto.x509_certificate:
+      path: /var/webapp/certificate.pem
+      privatekey_path: /var/webapp/certificate.key
+      provider: selfsigned
