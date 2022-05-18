@@ -18,11 +18,16 @@
       privatekey_path: /var/webapp/certificate.key
       provider: selfsigned
 
-  - name: Allow apache to modify files in /srv/git_repos
+  - name: change context on key file
     community.general.sefcontext:
-      target: '/var/webapp(/.*)?'
+      target: /var/webapp/certificate.key
       setype: cert_t
-      state: present
+
+- name: change context on cert file
+    community.general.sefcontext:
+      target: /var/webapp/certificate.key
+      setype: cert_t
+
 
   - name: Install mod_ssl 
     ansible.builtin.dnf:
