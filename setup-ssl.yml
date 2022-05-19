@@ -1,6 +1,8 @@
 ---
-- name: Configure SSL
+- name: Configure SSL for apache
   hosts: node1
+  tags: 
+  - apache
   become: True
   tasks:
   - name: Create directory to hold key and cert
@@ -64,3 +66,38 @@
       name: httpd
       state: restarted
       enabled: True   
+
+
+- name: Configure SSL on mysql
+  hosts: node2
+  tags: 
+  - mysql
+  become: True
+  tasks:
+  - name: Create directory to hold key and cert
+    ansible.builtin.file:
+      path: /var/mysqlcerts
+      state: directory
+
+  - name: Create private key (RSA, 4096 bits)
+    community.crypto.openssl_privatekey:
+      path: /var/mysqlcerts/certificate.key
+
+  - name: Create simple self-signed certificate
+    community.crypto.x509_certificate:
+      path: /var/mysqlcerts/certificate.cert
+      privatekey_path: /var/mysqlcerts/certificate.key
+      provider: selfsigned
+
+  - name: change context on key file
+    community.general.sefcontext:
+      target: /var/mysqlcerts/certificate.key
+      setype: cert_t
+
+  - name: change context on cert file
+    community.general.sefcontext:
+      target: /var/mysqlcerts/certificate.cert
+      setype: cert_t
+    
+  - name: Apply new SELinux file context to filesystem
+    ansible.builtin.command: restorecon -irv /var/mysqlcerts/
