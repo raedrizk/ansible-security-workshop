@@ -60,104 +60,16 @@
       enabled: True   
 
   handlers:
-  
   - name: restart apache
     ansible.builtin.service:
       name: httpd
       state: restarted
       enabled: True   
 
-
 - name: Configure SSL on mysql
   hosts: node2
   tags: 
   - mysql
-  become: True
-  tasks:
-  - name: Read the generated password
-    ansible.builtin.slurp:
-      src: /tmp/mysql-password
-    register: mysql_password
-
-  - name: Setting host facts using complex arguments
-    ansible.builtin.set_fact:
-      webapp_password: "{{ mysql_password['content'] | b64decode | trim }}"
-      
-  - name: Create directory to hold key and cert
-    ansible.builtin.file:
-      path: /var/mysqlcerts
-      state: directory
-
-  - name: Create private key (RSA, 4096 bits)
-    community.crypto.openssl_privatekey:
-      path: /var/mysqlcerts/mysql.key
-
-  - name: Generate an OpenSSL Certificate Signing Request
-    community.crypto.openssl_csr:
-      path: /var/mysqlcerts/mysql.csr
-      privatekey_path: /var/mysqlcerts/mysql.key
-      common_name: webappmysql
-
-  - name: Create simple self-signed certificate
-    community.crypto.x509_certificate:
-      path: /var/mysqlcerts/mysql.cert
-      privatekey_path: /var/mysqlcerts/mysql.key
-      csr_path:  /var/mysqlcerts/mysql.csr
-      provider: selfsigned
-
-  - name: change context on key file
-    community.general.sefcontext:
-      target: /var/mysqlcerts/mysql.key
-      setype: cert_t
-
-  - name: change context on cert file
-    community.general.sefcontext:
-      target: /var/mysqlcerts/mysql.cert
-      setype: cert_t
-    
-  - name: change context on csr
-    community.general.sefcontext:
-      target: /var/mysqlcerts/mysql.csr
-      setype: cert_t
-
-  - name: Apply new SELinux file context to filesystem
-    ansible.builtin.command: restorecon -irv /var/mysqlcerts/
-
-
-  - name: Configure custom port and remote listening
-    ansible.builtin.blockinfile:
-      path: /etc/my.cnf.d/mariadb-server.cnf
-      insertafter: "[mysqld]"
-      block: |
-        #SSL CONFIG
-        ssl-ca=/var/mysqlcerts/mysql.csr
-        ssl-cert=/var/mysqlcerts/mysql.cert
-        ssl-key=/var/mysqlcerts/mysql.key
-    notify:
-    - restart mysql
-    - check SSL
-
-  handlers:
-  
-  - name: restart mysql
-    ansible.builtin.service:
-      name: mariadb
-      state: restarted
-      enabled: True   
-
-  - name: check SSL
-    community.mysql.mysql_query:
-      login_host: localhost
-      login_port: 3389
-      login_user: webapp
-      login_password: "{{ webapp_password }}"
-      query:
-      - SHOW GLOBAL VARIABLES LIKE '%ssl%';
-
-- name: Configure SSL on mysql EXPERIMENT
-  hosts: node2
-  tags: 
-  - mysql2
   become: True
   tasks:
   - name: Read the generated password
@@ -216,14 +128,19 @@
       ownca_privatekey_path: "{{ ca_key.filename }}"
     register: ca_crt
 
-  # - name: Change file ownership, group and permissions
-  #   ansible.builtin.file:
-  #     path: /etc/mysql
-  #     state: directory
-  #     owner: mysql
-  #     group: mysql
-  #     mode: '666'
-  #     recurse: true
+  - name: Change file ownership, group and permissions
+    ansible.builtin.file:
+      path: "{{ item }}"
+      owner: mysql
+      group: mysql
+      mode: '777'
+    loop:
+    - /etc/mysql/CA_key.pem
+    - /etc/mysql/CA.csr
+    - /etc/mysql/CA.cert
+    - /etc/mysql/example_com_host_key.pem
+    - /etc/mysql/example_com.csr
+    - /etc/mysql/example_com.cert
 
   # - name: change context on files
   #   community.general.sefcontext:
@@ -252,9 +169,9 @@
         ssl-ca=/etc/mysql/CA.cert
         ssl-cert=/etc/mysql/example_com.cert
         ssl-key=/etc/mysql/example_com.cert
-    notify:
-    - restart mysql
-    - check SSL
+    # notify:
+    # - restart mysql
+    # - check SSL
 
   handlers:
   
