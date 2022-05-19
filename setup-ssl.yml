@@ -106,7 +106,6 @@
       provider: selfsigned
     register: ca_crt
 
-
   - name: Create the host CSR signing key
     community.crypto.openssl_privatekey:
       path: /etc/pki/tls/private/example_com_host_key.pem
@@ -133,7 +132,7 @@
       path: "{{ item }}"
       owner: mysql
       group: mysql
-      mode: '777'
+      mode: '660'
     loop:
     - /etc/pki/tls/private/CA_key.pem
     - /etc/pki/tls/private/CA.csr
@@ -168,10 +167,10 @@
         #SSL CONFIG
         ssl-ca=/etc/pki/tls/private/CA.cert
         ssl-cert=/etc/pki/tls/private/example_com.cert
-        ssl-key=/etc/pki/tls/private/example_com.cert
-    # notify:
-    # - restart mysql
-    # - check SSL
+        ssl-key=/etc/pki/tls/private/example_com_host_key.pem
+    notify:
+    - restart mysql
+    - check SSL
 
   handlers:
   
@@ -190,3 +189,4 @@
       check_hostname: true
       query:
       - SHOW GLOBAL VARIABLES LIKE '%ssl%';
+      - SHOW SESSION STATUS LIKE 'Ssl_cipher';
