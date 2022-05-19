@@ -83,24 +83,24 @@
       
   - name: Create directory to hold key and cert
     ansible.builtin.file:
-      path: /etc/mysql
+      path: /etc/pki/tls/private
       state: directory
 
   - name: Create the root certificate authority key
     community.crypto.openssl_privatekey:
-      path: /etc/mysql/CA_key.pem
+      path: /etc/pki/tls/private/CA_key.pem
     register: ca_key
 
   - name: Generate an OpenSSL Certificate Signing Request
     community.crypto.openssl_csr:
-      path: /etc/mysql/CA.csr
+      path: /etc/pki/tls/private/CA.csr
       privatekey_path: "{{ ca_key.filename }}"
       common_name: "my-ca"
     register: ca_csr
 
   - name: Sign the CA CSR
     community.crypto.x509_certificate:
-      path: /etc/mysql/CA.cert
+      path: /etc/pki/tls/private/CA.cert
       privatekey_path: "{{ ca_key.filename }}"
       csr_path:  "{{ ca_csr.filename }}"
       provider: selfsigned
@@ -109,19 +109,19 @@
 
   - name: Create the host CSR signing key
     community.crypto.openssl_privatekey:
-      path: /etc/mysql/example_com_host_key.pem
+      path: /etc/pki/tls/private/example_com_host_key.pem
     register: example_com_key
 
   - name: Generate an OpenSSL Certificate Signing Request
     community.crypto.openssl_csr:
-      path: /etc/mysql/example_com.csr
+      path: /etc/pki/tls/private/example_com.csr
       privatekey_path: "{{ example_com_key.filename }}"
       common_name: "example.com"
     register: example_com_csr
 
   - name: Sign thethe CSR for the LDAP server
     community.crypto.x509_certificate:
-      path: /etc/mysql/example_com.cert
+      path: /etc/pki/tls/private/example_com.cert
       csr_path:  "{{ example_com_csr.filename }}"
       provider: ownca
       ownca_path: "{{ ca_crt.filename }}"
@@ -135,27 +135,27 @@
       group: mysql
       mode: '777'
     loop:
-    - /etc/mysql/CA_key.pem
-    - /etc/mysql/CA.csr
-    - /etc/mysql/CA.cert
-    - /etc/mysql/example_com_host_key.pem
-    - /etc/mysql/example_com.csr
-    - /etc/mysql/example_com.cert
+    - /etc/pki/tls/private/CA_key.pem
+    - /etc/pki/tls/private/CA.csr
+    - /etc/pki/tls/private/CA.cert
+    - /etc/pki/tls/private/example_com_host_key.pem
+    - /etc/pki/tls/private/example_com.csr
+    - /etc/pki/tls/private/example_com.cert
 
   # - name: change context on files
   #   community.general.sefcontext:
   #     target: "{{ item }}"
   #     setype: cert_t
   #   loop:
-  #   - /etc/mysql/CA_key.pem
-  #   - /etc/mysql/CA.csr
-  #   - /etc/mysql/CA.cert
-  #   - /etc/mysql/example_com_host_key.pem
-  #   - /etc/mysql/example_com.csr
-  #   - /etc/mysql/example_com.cert
+  #   - /etc/pki/tls/private/CA_key.pem
+  #   - /etc/pki/tls/private/CA.csr
+  #   - /etc/pki/tls/private/CA.cert
+  #   - /etc/pki/tls/private/example_com_host_key.pem
+  #   - /etc/pki/tls/private/example_com.csr
+  #   - /etc/pki/tls/private/example_com.cert
 
   # - name: Apply new SELinux file context to filesystem
-  #   ansible.builtin.command: restorecon -irv /etc/mysql/
+  #   ansible.builtin.command: restorecon -irv /etc/pki/tls/private/
 
   - name: Configure custom port and remote listening
     ansible.builtin.blockinfile:
@@ -166,9 +166,9 @@
         bind-address=0.0.0.0
         port=3389
         #SSL CONFIG
-        ssl-ca=/etc/mysql/CA.cert
-        ssl-cert=/etc/mysql/example_com.cert
-        ssl-key=/etc/mysql/example_com.cert
+        ssl-ca=/etc/pki/tls/private/CA.cert
+        ssl-cert=/etc/pki/tls/private/example_com.cert
+        ssl-key=/etc/pki/tls/private/example_com.cert
     # notify:
     # - restart mysql
     # - check SSL
