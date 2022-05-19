@@ -216,14 +216,14 @@
       ownca_privatekey_path: "{{ ca_key.filename }}"
     register: ca_crt
 
-  - name: Change file ownership, group and permissions
-    ansible.builtin.file:
-      path: /etc/mysql
-      state: directory
-      owner: mysql
-      group: mysql
-      mode: '660'
-      recurse: true
+  # - name: Change file ownership, group and permissions
+  #   ansible.builtin.file:
+  #     path: /etc/mysql
+  #     state: directory
+  #     owner: mysql
+  #     group: mysql
+  #     mode: '666'
+  #     recurse: true
 
   # - name: change context on files
   #   community.general.sefcontext:
