@@ -154,3 +154,88 @@
       login_password: "{{ webapp_password }}"
       query:
       - SHOW GLOBAL VARIABLES LIKE '%ssl%';
+
+
+
+
+
+
+
+- name: Configure SSL on mysql EXPERIMENT
+  hosts: node2
+  tags: 
+  - mysql2
+  become: True
+  tasks:
+  - name: Read the generated password
+    ansible.builtin.slurp:
+      src: /tmp/mysql-password
+    register: mysql_password
+
+  - name: Setting host facts using complex arguments
+    ansible.builtin.set_fact:
+      webapp_password: "{{ mysql_password['content'] | b64decode | trim }}"
+      
+  - name: Create directory to hold key and cert
+    ansible.builtin.file:
+      path: /var/mysqlcerts2
+      state: directory
+
+  - name: Create the root certificate authority key
+    community.crypto.openssl_privatekey:
+      path: /var/mysqlcerts2/CA_key.pem
+    register: ca_key
+
+  - name: Generate an OpenSSL Certificate Signing Request
+    community.crypto.openssl_csr:
+      path: /var/mysqlcerts2/CA.csr
+      privatekey_path: "{{ ca_key.filename }}"
+      common_name: "my-ca"
+    register: ca_csr
+
+  - name: Sign the CA CSR
+    community.crypto.x509_certificate:
+      path: /var/mysqlcerts2/CA.cert
+      privatekey_path: "{{ ca_key.filename }}"
+      csr_path:  "{{ ca_csr.filename }}"
+      provider: selfsigned
+    register: ca_crt
+
+
+  - name: Create the host CSR signing key
+    community.crypto.openssl_privatekey:
+      path: /var/mysqlcerts2/example_com_host_key.pem
+    register: example_com_key
+
+  - name: Generate an OpenSSL Certificate Signing Request
+    community.crypto.openssl_csr:
+      path: /var/mysqlcerts2/example_com.csr
+      privatekey_path: "{{ example_com_key.filename }}"
+      common_name: "example.com"
+    register: example_com_csr
+
+  - name: Sign thethe CSR for the LDAP server
+    community.crypto.x509_certificate:
+      path: /var/mysqlcerts2/example_com.cert
+      csr_path:  "{{ example_com_csr.filename }}"
+      provider: ownca
+      ownca_path: "{{ ca_crt.filename }}"
+      ownca_privatekey_path: "{{ ca_key.filename }}"
+    register: ca_crt
+
+  - name: change context on files
+    community.general.sefcontext:
+      target: "{{ item }}"
+      setype: cert_t
+    loop:
+    - /var/mysqlcerts2/CA_key.pem
+    - /var/mysqlcerts2/CA.csr
+    - /var/mysqlcerts2/CA.cert
+    - /var/mysqlcerts2/example_com_host_key.pem
+    - /var/mysqlcerts2/example_com.csr
+    - /var/mysqlcerts2/example_com.cert
+
+
+  - name: Apply new SELinux file context to filesystem
+    ansible.builtin.command: restorecon -irv /var/mysqlcerts2/
+
