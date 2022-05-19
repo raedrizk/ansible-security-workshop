@@ -137,7 +137,6 @@
     - restart mysql
     - check SSL
 
-
   handlers:
   
   - name: restart mysql
@@ -154,12 +153,6 @@
       login_password: "{{ webapp_password }}"
       query:
       - SHOW GLOBAL VARIABLES LIKE '%ssl%';
-
-
-
-
-
-
 
 - name: Configure SSL on mysql EXPERIMENT
   hosts: node2
@@ -232,20 +225,20 @@
       mode: '660'
       recurse: true
 
-  - name: change context on files
-    community.general.sefcontext:
-      target: "{{ item }}"
-      setype: cert_t
-    loop:
-    - /etc/mysql/CA_key.pem
-    - /etc/mysql/CA.csr
-    - /etc/mysql/CA.cert
-    - /etc/mysql/example_com_host_key.pem
-    - /etc/mysql/example_com.csr
-    - /etc/mysql/example_com.cert
+  # - name: change context on files
+  #   community.general.sefcontext:
+  #     target: "{{ item }}"
+  #     setype: cert_t
+  #   loop:
+  #   - /etc/mysql/CA_key.pem
+  #   - /etc/mysql/CA.csr
+  #   - /etc/mysql/CA.cert
+  #   - /etc/mysql/example_com_host_key.pem
+  #   - /etc/mysql/example_com.csr
+  #   - /etc/mysql/example_com.cert
 
-  - name: Apply new SELinux file context to filesystem
-    ansible.builtin.command: restorecon -irv /etc/mysql/
+  # - name: Apply new SELinux file context to filesystem
+  #   ansible.builtin.command: restorecon -irv /etc/mysql/
 
   - name: Configure custom port and remote listening
     ansible.builtin.blockinfile:
@@ -256,9 +249,9 @@
         bind-address=0.0.0.0
         port=3389
         #SSL CONFIG
-        ssl-ca=/var/mysqlcerts/mysql.csr
-        ssl-cert=/var/mysqlcerts/mysql.cert
-        ssl-key=/var/mysqlcerts/mysql.key
+        ssl-ca=/etc/mysql/CA.cert
+        ssl-cert=/etc/mysql/example_com.cert
+        ssl-key=/etc/mysql/example_com.cert
     notify:
     - restart mysql
     - check SSL
