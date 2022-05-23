@@ -69,7 +69,19 @@
     password: "{{ webapp_password }}"
     priv: '*.*:ALL'
     state: present
-
+# EXPERIMENTS
+- name: Create the application DB user
+  community.mysql.mysql_user:
+    login_host: localhost
+    login_port: 3389
+    login_user: root
+    login_password: "{{ webapp_password }}"
+    name: 'webapphost'
+    host: 'node1'
+    password: "{{ webapp_password }}"
+    priv: '*.*:ALL'
+    state: present
+# END EXPERIMENTS
 - name: create simple appp database
   community.mysql.mysql_db:
     login_host: localhost
