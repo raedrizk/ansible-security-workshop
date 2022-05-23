@@ -95,7 +95,6 @@
       ssl:
     state: present
 
-    REQUIRE SSL;
 # END EXPERIMENTS
 - name: create simple appp database
   community.mysql.mysql_db:
