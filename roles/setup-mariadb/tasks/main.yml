@@ -89,8 +89,9 @@
     login_user: root
     login_password: "{{ webapp_password }}"
     name: 'webapphostssl'
-    host: 'node1.example.com'
+    host: '%'
     password: "{{ webapp_password }}"
+    priv: '*.*:ALL'
     tls_requires:
       ssl:
     state: present
