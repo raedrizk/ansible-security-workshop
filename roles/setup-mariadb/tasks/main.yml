@@ -77,7 +77,7 @@
     login_user: root
     login_password: "{{ webapp_password }}"
     name: 'webapphost'
-    host: 'node1'
+    host: 'node1.example.com'
     password: "{{ webapp_password }}"
     priv: '*.*:ALL'
     state: present
