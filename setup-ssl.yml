@@ -95,7 +95,7 @@
     community.crypto.openssl_csr:
       path: /etc/pki/tls/private/CA.csr
       privatekey_path: "{{ ca_key.filename }}"
-      common_name: "node2"
+      common_name: "node2.example.com"
     register: ca_csr
 
   - name: Sign the CA CSR
@@ -115,7 +115,7 @@
     community.crypto.openssl_csr:
       path: /etc/pki/tls/private/example_com.csr
       privatekey_path: "{{ example_com_key.filename }}"
-      common_name: "node2"
+      common_name: "node2.example.com"
     register: example_com_csr
 
   - name: Sign thethe CSR for the LDAP server
