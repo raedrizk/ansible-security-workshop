@@ -48,12 +48,6 @@
         ini_set('display_errors', '1');
         error_reporting(E_ALL | E_STRICT);
 
-        $options = array(
-            PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES utf8',
-            PDO::MYSQL_ATTR_SSL_CA => $sslca,
-            PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => true
-        );
-
         try
         {
             $conn = new PDO("mysql:host=$servername;port=$port;dbname=$dbname", $username, $password, $options);
