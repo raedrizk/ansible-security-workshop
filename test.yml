@@ -9,3 +9,12 @@
 
   - debug:
       var: pids_of_python
+
+  - name: Generate a new 2048 bit key
+    community.crypto.openssl_privatekey:
+      path: /tmp/ca-key.pem
+      size: 2048
+    register: ca_key
+
+  - debug:
+      var: ca_key.type
