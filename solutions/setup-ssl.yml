@@ -173,7 +173,7 @@
 # Taks to handle MySQL SSL Connection
   - name: Create a file with the contents of the ca cert generated on the mariaDB host
     ansible.builtin.copy:
-      content: "{{ hostvars[mariadb_host]['cacert_contents'] }}";
+      content: "{{ hostvars[mariadb_host]['cacert_contents'] }}"
       dest: "{{ apache_host_mariadb_ssl_ca_path }}"
       
   - name: copy vars php template
