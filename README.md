@@ -53,9 +53,72 @@ The lab environemnt described above will need to be configured before going thro
 
 <br>
 
+In order to import the setup playbook into Automation Controller, we will need to define a new project. 
+To start, click **Projects** and click on the ![Add](images/add.png) icon. Use the following values for your new Project:
+
+| Key                              | Value                                                             | Note |
+|----------------------------------|-------------------------------------------------------------------|------|
+| Name                             | Security Workshop Project                                         |      |
+| Description                      | Project containing Playbooks for the RHEL Security Workshop       |      |
+| Organization                     | Default                                                           |      |
+| Execution Environment            | Leave Blank                                                       |      |
+| Source Control Type              | Git                                                               |      |
+| Source Control URL               | Clone the URL of the git repo you are reading the instructions on |      |
+| Source Control Branch/Tag/Commit | Leave Blank                                                       |      |
+| Source Control Refspec           | Leave Blank                                                       |      |
+| Source Control Credential        | Leave Blank                                                       |      |
+
+Project Definition will look like this: ![New Project](images/security-project.png)
+
+
+click on the ![Save](images/save.png) icon, and you will be rediected to the project details page, and a Job will automatically be created to sync the project in Controller. Wait until the `Last Job Status` shows ![Project Successfull](images/project-successful.png). If you get a failure, click the edit button, verify that you entered the project details correctly and save the project.
+
+
+
 > **Tip**
 >
-> The `chocolatey.chocolatey` collection is one of the certified partner collections available on [Automation Hub](https://console.redhat.com/ansible/automation-hub/repo/published/chocolatey/chocolatey).
+> We will be setting up another project to host the playbooks we will write during this workshop.
+
+
+## Step 2 - Create the `Workshop Initial Setup` Job template
+
+
+Now that the project sync is complete, Select **Templates** and click on the ![Add](images/add.png) icon, and select `Add Job Template`. Use the following values for your new Template:
+
+| Key         | Value                                            | Note |
+|-------------|--------------------------------------------------|------|
+| Name        | Workshop Initial Setup                           |      |
+| Description | Initial setup and configuration of the workshop  |      |
+| Job Type    | Run                                              |      |
+| Inventory   | Workshop Inventory                               |      |
+| Project     | Security Workshop Project                        |      |
+| Execution Environment | rhel workshop execution environment             |      |
+| Playbook    | `lab-setup.yml`                |      |
+| Credential  | Type: **Machine**. Name: **Workshop Credential**     |      |
+| Limit       | web                                          |      |
+| Options     |                                                  |      |
+
+<br>
+
+![Create Job Template](images/security-setup-template.png)
+
+Click SAVE and then Click LAUNCH to run the job. The job should run successfully and you should be able to see the details of the workshop configuration playbook.
+
+![Run Job Template](images/security-setup-template-output.png)
+
+The initial configuration for the workshop is now complete.
+
+## Step 3 - Validate the setup
+
+
+
+
+
+
+
+
+
+
 
 To start, we will need to go to our Inventory. So click **Inventories**
 on the left panel, and then click the name of our Inventory **Workshop Inventory**. Now that you are on the Inventory Details page, we
