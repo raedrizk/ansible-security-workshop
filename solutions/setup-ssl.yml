@@ -1,6 +1,107 @@
 ---
+- name: Configure SSL on mysql
+  hosts: "{{ mariadb_host }}"
+  vars_files: vars/lab-setup.yml
+  tags: 
+  - mysql
+  become: True
+  tasks:
+  - name: Read the generated password
+    ansible.builtin.slurp:
+      src: /tmp/mysql-password
+    register: mysql_password
+
+  - name: Setting host facts for the mysql password
+    ansible.builtin.set_fact:
+      webapp_password: "{{ mysql_password['content'] | b64decode | trim }}"
+      
+  - name: Make sure that the directory to hold keys and certs exist
+    ansible.builtin.file:
+      path: /etc/pki/tls/private
+      state: directory
+
+  - name: Generate a new 2048 bit key
+    community.crypto.openssl_privatekey:
+      path: /etc/pki/tls/private/ca-key.pem
+      size: 2048
+    register: ca_key
+
+  - name: Create certificate signing request (CSR) for CA certificate
+    community.crypto.openssl_csr_pipe:
+      privatekey_path: "{{ ca_key.filename }}"
+      common_name: "{{ inventory_hostname }}"
+      use_common_name_for_san: false  # since we do not specify SANs, don't use CN as a SAN
+      basic_constraints:
+        - 'CA:TRUE'
+    register: ca_csr
+
+  - name: Create The CA self-signed certificate
+    community.crypto.x509_certificate:
+      path: /etc/pki/tls/private/ca-cert.pem
+      csr_content: "{{ ca_csr.csr }}"
+      privatekey_path: "{{ ca_key.filename }}"
+      provider: selfsigned
+    register: ca_crt
+
+  - name: Create the private key for the server
+    community.crypto.openssl_privatekey:
+      path: /etc/pki/tls/private/server-key.pem
+      size: 2048
+    register: server_key
+
+  - name: Create certificate signing request  for Server certificate
+    community.crypto.openssl_csr_pipe:
+      privatekey_path: "{{ server_key.filename }}"
+      common_name: "{{ inventory_hostname }}.example.com"
+      use_common_name_for_san: false  # since we do not specify SANs, don't use CN as a SAN
+    register: server_csr
+
+  - name: Sign thethe CSR for the server
+    community.crypto.x509_certificate:
+      path: /etc/pki/tls/private/server-cert.pem
+      csr_content:  "{{ server_csr.csr }}"
+      provider: ownca
+      ownca_path: "{{ ca_crt.filename }}"
+      ownca_privatekey_path: "{{ ca_key.filename }}"
+    register: ca_crt
+
+  - name: Change file ownership, group and permissions
+    ansible.builtin.file:
+      path: "{{ item }}"
+      owner: mysql
+      group: mysql
+      mode: '660'
+    loop:
+    - /etc/pki/tls/private/ca-key.pem
+    - /etc/pki/tls/private/ca-cert.pem
+    - /etc/pki/tls/private/server-key.pem
+    - /etc/pki/tls/private/server-cert.pem
+
+  - name: Configure custom port and remote listening
+    ansible.builtin.blockinfile:
+      path: /etc/my.cnf.d/mariadb-server.cnf
+      insertafter: "[mysqld]"
+      block: |
+        #BIND ADDRESS AND PORT
+        bind-address=0.0.0.0
+        port=3389
+        #SSL CONFIG
+        ssl-ca=/etc/pki/tls/private/ca-cert.pem
+        ssl-cert=/etc/pki/tls/private/server-cert.pem
+        ssl-key=/etc/pki/tls/private/server-key.pem
+    notify:
+    - restart mysql
+  handlers:
+  - name: restart mysql
+    ansible.builtin.service:
+      name: mariadb
+      state: restarted
+      enabled: True   
+
+
 - name: Configure SSL for apache
-  hosts: node1
+  hosts: "{{ apache_host }}"
+  vars_files: vars/lab-setup.yml
   tags: 
   - apache
   become: True
@@ -57,125 +158,23 @@
     ansible.builtin.service:
       name: httpd
       state: started
-      enabled: True   
+      enabled: True  
 
-  handlers:
+# Taks to handle MySQL SSL Connection
+  - name: Transfer file from ServerA to ServerB
+    ansible.posix.synchronize:
+      src: /etc/pki/tls/private/ca-cert.pem
+      dest: "{{ apache_host_mariadb_ssl_ca_path }}"
+    delegate_to: "{{ mariadb_host }}"
+
+  - name: copy vars php template
+    ansible.builtin.template:
+      src: templates/dbvars.php.j2
+      dest: /var/www/html/dbvars.php
+
+   handlers:
   - name: restart apache
     ansible.builtin.service:
       name: httpd
       state: restarted
       enabled: True   
-
-- name: Configure SSL on mysql
-  hosts: node2
-  tags: 
-  - mysql
-  become: True
-  tasks:
-  - name: Read the generated password
-    ansible.builtin.slurp:
-      src: /tmp/mysql-password
-    register: mysql_password
-
-  - name: Setting host facts for the mysql password
-    ansible.builtin.set_fact:
-      webapp_password: "{{ mysql_password['content'] | b64decode | trim }}"
-      
-  - name: Make sure that the directory to hold keys and certs exist
-    ansible.builtin.file:
-      path: /etc/pki/tls/private
-      state: directory
-
-  - name: Generate a new 2048 bit key
-    community.crypto.openssl_privatekey:
-      path: /etc/pki/tls/private/ca-key.pem
-      size: 2048
-    register: ca_key
-
-  - name: Create certificate signing request (CSR) for CA certificate
-    community.crypto.openssl_csr_pipe:
-      privatekey_path: "{{ ca_key.filename }}"
-      common_name: "{{ inventory_hostname }}"
-      use_common_name_for_san: false  # since we do not specify SANs, don't use CN as a SAN
-      basic_constraints:
-        - 'CA:TRUE'
-    register: ca_csr
-
-  - name: Create The CA self-signed certificate
-    community.crypto.x509_certificate:
-      path: /etc/pki/tls/private/ca-cert.pem
-      csr_content: "{{ ca_csr.csr }}"
-      privatekey_path: "{{ ca_key.filename }}"
-      provider: selfsigned
-    register: ca_crt
-
-  - name: Create the private key for the server
-    community.crypto.openssl_privatekey:
-      path: /etc/pki/tls/private/server-key.pem
-      size: 2048
-    register: server_key
-
-  - name: Create certificate signing request  for Server certificate
-    community.crypto.openssl_csr_pipe:
-      privatekey_path: "{{ server_key.filename }}"
-      common_name: "{{ inventory_hostname }}.example.com"
-      use_common_name_for_san: false  # since we do not specify SANs, don't use CN as a SAN
-    register: server_csr
-
-
-  - name: Sign thethe CSR for the server
-    community.crypto.x509_certificate:
-      path: /etc/pki/tls/private/server-cert.pem
-      csr_content:  "{{ server_csr.csr }}"
-      provider: ownca
-      ownca_path: "{{ ca_crt.filename }}"
-      ownca_privatekey_path: "{{ ca_key.filename }}"
-    register: ca_crt
-
-  - name: Change file ownership, group and permissions
-    ansible.builtin.file:
-      path: "{{ item }}"
-      owner: mysql
-      group: mysql
-      mode: '660'
-    loop:
-    - /etc/pki/tls/private/ca-key.pem
-    - /etc/pki/tls/private/ca-cert.pem
-    - /etc/pki/tls/private/server-key.pem
-    - /etc/pki/tls/private/server-cert.pem
-
-  - name: Configure custom port and remote listening
-    ansible.builtin.blockinfile:
-      path: /etc/my.cnf.d/mariadb-server.cnf
-      insertafter: "[mysqld]"
-      block: |
-        #BIND ADDRESS AND PORT
-        bind-address=0.0.0.0
-        port=3389
-        #SSL CONFIG
-        ssl-ca=/etc/pki/tls/private/ca-cert.pem
-        ssl-cert=/etc/pki/tls/private/server-cert.pem
-        ssl-key=/etc/pki/tls/private/server-key.pem
-    notify:
-    - restart mysql
-    - check SSL
-
-  handlers:
-  
-  - name: restart mysql
-    ansible.builtin.service:
-      name: mariadb
-      state: restarted
-      enabled: True   
-
-  - name: check SSL
-    community.mysql.mysql_query:
-      login_host: localhost
-      login_port: 3389
-      login_user: webappssl
-      login_password: "{{ webapp_password }}"
-      check_hostname: true
-      query:
-      - SHOW GLOBAL VARIABLES LIKE '%ssl%';
-      - SHOW SESSION STATUS LIKE 'Ssl_cipher';
-      - SHOW SESSION STATUS WHERE Variable_name IN ('Ssl_version','Ssl_cipher');
