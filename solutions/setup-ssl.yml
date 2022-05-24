@@ -172,7 +172,7 @@
       src: templates/dbvars.php.j2
       dest: /var/www/html/dbvars.php
 
-   handlers:
+  handlers:
   - name: restart apache
     ansible.builtin.service:
       name: httpd
