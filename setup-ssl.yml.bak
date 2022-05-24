@@ -86,23 +86,26 @@
       path: /etc/pki/tls/private
       state: directory
 
-  - name: Generate a new 2048 bit key
+  - name: Create the root certificate authority key
     community.crypto.openssl_privatekey:
       path: /etc/pki/tls/private/ca-key.pem
       size: 2048
     register: ca_key
 
-  - name: Create certificate signing request (CSR) for CA certificate
-    community.crypto.openssl_csr_pipe:
+  - name: Generate an OpenSSL Certificate Signing Request
+    community.crypto.openssl_csr:
+      path: /etc/pki/tls/private/ca-cert.csr
       privatekey_path: "{{ ca_key.filename }}"
       common_name: "{{ inventory_hostname }}"
-      use_common_name_for_san: false  # since we do not specify SANs, don't use CN as a SAN
-      basic_constraints:
-        - 'CA:TRUE'
     register: ca_csr
 
-
-
+  - name: Sign the CA CSR
+    community.crypto.x509_certificate:
+      path: /etc/pki/tls/private/ca-cert.pem
+      privatekey_path: "{{ ca_key.filename }}"
+      csr_path:  "{{ ca_csr.filename }}"
+      provider: selfsigned
+    register: ca_crt
 
   - name: Create the private key for the server
     community.crypto.openssl_privatekey:
