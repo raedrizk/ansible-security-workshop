@@ -21,7 +21,12 @@
     state: yes
     persistent: yes
 
-- name: copy idnex page
-  ansible.builtin.template:
-    src: index.php.j2
+- name: copy index page
+  ansible.builtin.copy:
+    src: index.php
     dest: /var/www/html/index.php
+
+- name: copy vars php template
+  ansible.builtin.template:
+    src: dbvars.php.j2
+    dest: /var/www/html/dbvars.php

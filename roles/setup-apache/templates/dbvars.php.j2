@@ -1,0 +1,16 @@
+<?php
+/**
+ * @var string $servername
+ * @var string $port
+ * @var string $username
+ * @var string $password
+ * @var string $dbname
+ * @var string $sslca
+ */
+$servername = "{{ mariadb_host }}.example.com";
+$port = "{{ mariadb_port }}";
+$username = "{{ mariadb_username }}";
+$password = "{{ hostvars[mariadb_host]['webapp_password'] }}";
+$dbname = "{{ mariadb_db_name }}";
+$sslca = "{{ apache_host_mariadb_ssl_ca_path }}";
+?>

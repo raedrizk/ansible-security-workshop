@@ -1,4 +1,13 @@
 ---
+#Apache Variables
 apache_host: node1
+apache_host_mariadb_ssl_ca_path: /var/www/html/ca-cert.pem
+
+#MariaDB Variables
 mariadb_host: node2
+mariadb_port: 3389
+mariadb_username: webapp
+mariadb_db_name: webapp_db
+
+
 reporting_host: node3
