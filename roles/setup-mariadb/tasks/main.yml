@@ -65,7 +65,7 @@
     login_user: root
     login_password: "{{ webapp_password }}"
     name: 'webapp'
-    host: '{{ apache_host }}.example.com'
+    host: '%'
     password: "{{ webapp_password }}"
     priv: '*.*:ALL'
     state: present
