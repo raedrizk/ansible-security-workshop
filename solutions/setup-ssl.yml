@@ -77,6 +77,16 @@
     - /etc/pki/tls/private/server-key.pem
     - /etc/pki/tls/private/server-cert.pem
 
+  - name: Read the generated ca-cert.pem file
+    ansible.builtin.slurp:
+      src: /etc/pki/tls/private/ca-cert.pem
+    register: cacert
+
+  - name: Setting host facts for the mysql password
+    ansible.builtin.set_fact:
+      cacert_contents: "{{ cacert['content'] | b64decode | trim }}"
+
+
   - name: Configure custom port and remote listening
     ansible.builtin.blockinfile:
       path: /etc/my.cnf.d/mariadb-server.cnf
@@ -161,12 +171,11 @@
       enabled: True  
 
 # Taks to handle MySQL SSL Connection
-  - name: Transfer file from ServerA to ServerB
-    ansible.posix.synchronize:
-      src: /etc/pki/tls/private/ca-cert.pem
+  - name: Create a file with the contents of the ca cert generated on the mariaDB host
+    ansible.builtin.copy:
+      content: "{{ hostvars[mariadb_host]['cacert_contents'] }}";
       dest: "{{ apache_host_mariadb_ssl_ca_path }}"
-    delegate_to: "{{ mariadb_host }}"
-
+      
   - name: copy vars php template
     ansible.builtin.template:
       src: templates/dbvars.php.j2
