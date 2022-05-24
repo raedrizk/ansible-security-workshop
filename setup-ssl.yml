@@ -172,9 +172,10 @@
     community.mysql.mysql_query:
       login_host: localhost
       login_port: 3389
-      login_user: webapp
+      login_user: webappssl
       login_password: "{{ webapp_password }}"
       check_hostname: true
       query:
       - SHOW GLOBAL VARIABLES LIKE '%ssl%';
       - SHOW SESSION STATUS LIKE 'Ssl_cipher';
+      - SHOW SESSION STATUS WHERE Variable_name IN ('Ssl_version','Ssl_cipher');
