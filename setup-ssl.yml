@@ -96,7 +96,7 @@
     community.crypto.openssl_csr:
       path: /etc/pki/tls/private/ca-cert.csr
       privatekey_path: "{{ ca_key.filename }}"
-      common_name: "{{ mariadb_host }}"
+      common_name: "{{ inventory_hostname }}"
     register: ca_csr
 
   - name: Sign the CA CSR
@@ -117,7 +117,7 @@
     community.crypto.openssl_csr:
       path: /etc/pki/tls/private/server-cert.csr
       privatekey_path: "{{ server_key.filename }}"
-      common_name: "{{ mariadb_host }}.example.com"
+      common_name: "{{ inventory_hostname }}.example.com"
     register: server_csr
 
   - name: Sign thethe CSR for the server
