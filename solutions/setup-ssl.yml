@@ -26,7 +26,7 @@
     community.crypto.openssl_csr_pipe:
       privatekey_path: "{{ ca_key.filename }}"
       common_name: "{{ inventory_hostname }}"
-      use_common_name_for_san: false  # since we do not specify SANs, don't use CN as a SAN
+      use_common_name_for_san: false  
       basic_constraints:
         - 'CA:TRUE'
     register: ca_csr
@@ -55,7 +55,7 @@
     community.crypto.openssl_csr_pipe:
       privatekey_path: "{{ server_key.filename }}"
       common_name: "{{ inventory_hostname }}.example.com"
-      use_common_name_for_san: false  # since we do not specify SANs, don't use CN as a SAN
+      use_common_name_for_san: false  
     register: server_csr
 
   - name: Sign thethe CSR for the server

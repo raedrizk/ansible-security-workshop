@@ -287,7 +287,7 @@ Next we will add our tasks to the play:
     community.crypto.openssl_csr_pipe:
       privatekey_path: "{{ ca_key.filename }}"
       common_name: "{{ inventory_hostname }}"
-      use_common_name_for_san: false  # since we do not specify SANs, don't use CN as a SAN
+      use_common_name_for_san: false  
       basic_constraints:
         - 'CA:TRUE'
     register: ca_csr
@@ -316,7 +316,7 @@ Next we will add our tasks to the play:
     community.crypto.openssl_csr_pipe:
       privatekey_path: "{{ server_key.filename }}"
       common_name: "{{ inventory_hostname }}.example.com"
-      use_common_name_for_san: false  # since we do not specify SANs, don't use CN as a SAN
+      use_common_name_for_san: false  
     register: server_csr
 
   - name: Sign thethe CSR for the server
@@ -400,7 +400,7 @@ The full playbook should now look like this:
     community.crypto.openssl_csr_pipe:
       privatekey_path: "{{ ca_key.filename }}"
       common_name: "{{ inventory_hostname }}"
-      use_common_name_for_san: false  # since we do not specify SANs, don't use CN as a SAN
+      use_common_name_for_san: false  
       basic_constraints:
         - 'CA:TRUE'
     register: ca_csr
@@ -429,7 +429,7 @@ The full playbook should now look like this:
     community.crypto.openssl_csr_pipe:
       privatekey_path: "{{ server_key.filename }}"
       common_name: "{{ inventory_hostname }}.example.com"
-      use_common_name_for_san: false  # since we do not specify SANs, don't use CN as a SAN
+      use_common_name_for_san: false  
     register: server_csr
 
   - name: Sign thethe CSR for the server
@@ -570,7 +570,7 @@ So the full playbook looks like this:
     community.crypto.openssl_csr_pipe:
       privatekey_path: "{{ ca_key.filename }}"
       common_name: "{{ inventory_hostname }}"
-      use_common_name_for_san: false  # since we do not specify SANs, don't use CN as a SAN
+      use_common_name_for_san: false  
       basic_constraints:
         - 'CA:TRUE'
     register: ca_csr
@@ -599,7 +599,7 @@ So the full playbook looks like this:
     community.crypto.openssl_csr_pipe:
       privatekey_path: "{{ server_key.filename }}"
       common_name: "{{ inventory_hostname }}.example.com"
-      use_common_name_for_san: false  # since we do not specify SANs, don't use CN as a SAN
+      use_common_name_for_san: false  
     register: server_csr
 
   - name: Sign thethe CSR for the server
@@ -864,7 +864,7 @@ The full playbook so far should look like this:
     community.crypto.openssl_csr_pipe:
       privatekey_path: "{{ ca_key.filename }}"
       common_name: "{{ inventory_hostname }}"
-      use_common_name_for_san: false  # since we do not specify SANs, don't use CN as a SAN
+      use_common_name_for_san: false  
       basic_constraints:
         - 'CA:TRUE'
     register: ca_csr
@@ -893,7 +893,7 @@ The full playbook so far should look like this:
     community.crypto.openssl_csr_pipe:
       privatekey_path: "{{ server_key.filename }}"
       common_name: "{{ inventory_hostname }}.example.com"
-      use_common_name_for_san: false  # since we do not specify SANs, don't use CN as a SAN
+      use_common_name_for_san: false  
     register: server_csr
 
   - name: Sign thethe CSR for the server
@@ -1104,7 +1104,7 @@ The Final play book will look like this:
     community.crypto.openssl_csr_pipe:
       privatekey_path: "{{ ca_key.filename }}"
       common_name: "{{ inventory_hostname }}"
-      use_common_name_for_san: false  # since we do not specify SANs, don't use CN as a SAN
+      use_common_name_for_san: false  
       basic_constraints:
         - 'CA:TRUE'
     register: ca_csr
@@ -1133,7 +1133,7 @@ The Final play book will look like this:
     community.crypto.openssl_csr_pipe:
       privatekey_path: "{{ server_key.filename }}"
       common_name: "{{ inventory_hostname }}.example.com"
-      use_common_name_for_san: false  # since we do not specify SANs, don't use CN as a SAN
+      use_common_name_for_san: false  
     register: server_csr
 
   - name: Sign thethe CSR for the server
@@ -1303,7 +1303,7 @@ For the last time in this section, commit and push your playbook to github. Back
 
 ![HTTPS Encrypted](images/https-encrypted.png)
 
-We now have a playbook that can consistantly apply the requirements laid out by the security team in an automated way.
+We now have a playbook that can consistantly apply the requirements laid out by the security team in an automated way, **HOORAY!**
 
 # Section 3: DETECT
 
