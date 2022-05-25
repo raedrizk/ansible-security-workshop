@@ -1,4 +1,4 @@
-# Ansible Workshop - Ansible for Red Hat Enterprise Linux Security Automation
+# [WIP] Ansible Workshop - Ansible for Red Hat Enterprise Linux Security Automation
 
 **This is documentation for Ansible Automation Platform 2**
 
