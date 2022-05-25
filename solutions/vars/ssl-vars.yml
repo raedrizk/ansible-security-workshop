@@ -8,7 +8,9 @@ apache_certs_path: /var/webapp
 #MariaDB Variables
 mariadb_host: node2
 mariadb_port: 3389
-mariadb_username: webappssl
+mariadb_system_user: mysql
+mariadb_system_group: mysql
+mariadb_username: webapp
 mariadb_db_name: webapp_db
 mysql_db_password_file: /tmp/mysql-password
 mariadb_config_file: /etc/my.cnf.d/mariadb-server.cnf

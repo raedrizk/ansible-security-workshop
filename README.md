@@ -759,8 +759,551 @@ Commit and push your playbook to github. Back in Automation Controller , go to t
 
 The application is now able to connect to the database backend again, but this time the values for the `Ssl_version` and `Ssl_cipher`being shown indicate that the connection to the database is Encrypted using the SSL Version shown in the `Ssl_version` variable, using the Cipher shown in the `Ssl_cipher` variable. We now have a playbook that can enforce the first requirement, *Awesome!*
 
+Now we move to the second requirement, which requires that all traffic to the application itself is encrypted. Previously we attempted to access the application over https, and got an error as Apache is configured to listen for http traffic only. We will add some tasks to our playbook to configure https. For the purpose of this workshop, we will be using self signed certificates that we will create but in a real environment, chances are that there will be a set of certificates already issued for that purpose, that however will not change much other than omit the need to generate those certificates, and instead copy them directly to the Apache server, so if anything it would be even easier.
 
+add the following tasks in the second play `Configure SSL for apache` in our playbook:
 
+```yaml
+  - name: Install mod_ssl 
+    ansible.builtin.dnf:
+      name: mod_ssl
+      state: latest
+    notify: restart apache
+
+  - name: Create directory to hold Apache key and cert
+    ansible.builtin.file:
+      path: "{{ apache_certs_path }}"
+      state: directory
+
+  - name: Create the private key (4096 bits)
+    community.crypto.openssl_privatekey:
+      path: "{{ apache_certs_path }}/certificate.key"
+      size: 4096
+
+  - name: Create a self-signed certificate
+    community.crypto.x509_certificate:
+      path: "{{ apache_certs_path }}/certificate.cert"
+      privatekey_path: "{{ apache_certs_path }}/certificate.key"
+      provider: selfsigned
+
+  - name: change SELinux context on cert and key file
+    community.general.sefcontext:
+      target: "{{ item }}"
+      setype: cert_t
+    loop:
+    - "{{ apache_certs_path }}/certificate.key"
+    - "{{ apache_certs_path }}/certificate.cert"
+   
+  - name: Apply new SELinux file context to filesystem
+    ansible.builtin.command: restorecon -irv "{{ apache_certs_path }}/"
+
+  - name: edit the ssl configuration file to point to the generated certificate
+    ansible.builtin.lineinfile:
+      path: "{{ apache_config_file }}"
+      regexp: '^SSLCertificateFile'
+      line: SSLCertificateFile {{ apache_certs_path }}/certificate.cert
+    notify: restart apache
+
+  - name: edit the ssl configuration file to point to the generated key
+    ansible.builtin.lineinfile:
+      path: "{{ apache_config_file }}"
+      regexp: '^SSLCertificateKeyFile'
+      line: SSLCertificateKeyFile {{ apache_certs_path }}/certificate.key
+    notify: restart apache
+    
+  - name: ensure that apache is running and enabled for idempotency
+    ansible.builtin.service:
+      name: httpd
+      state: started
+      enabled: True  
+      
+  handlers:
+  - name: restart apache
+    ansible.builtin.service:
+      name: httpd
+      state: restarted
+      enabled: True   
+```
+
+The tasks added will do the following:
+1. Install `mod_ssl` package required for Apache to use SSL.
+2. Ensure that the directory that will hold the Apache key and certificate is present, create it if not.
+3. Generate a new Key, and a new Self Signed Certificate.
+4. Change and apply the SELinux file context for the certificate and key.
+5. Edit the Apache configuration file to point to the new certificate and key.
+6. Notify a handler to restart Apache to apply the new configuration.
+
+The full playbook so far should look like this:
+
+```yaml
+---
+- name: Configure SSL on mysql
+  hosts: "{{ mariadb_host }}"
+  gather_facts: False
+  vars_files: vars/ssl-vars.yml
+  tags: 
+  - mysql
+  become: True
+  tasks:
+     
+  - name: Make sure that the directory to hold keys and certs exist
+    ansible.builtin.file:
+      path: "{{ mariadb_certs_path }}"
+      state: directory
+
+  - name: Generate a new 2048 bit key
+    community.crypto.openssl_privatekey:
+      path: "{{ mariadb_certs_path }}/{{ mariadb_ca_key_name }}"
+      size: 2048
+      group: "{{ mariadb_system_user }}"
+      owner: "{{ mariadb_system_group }}"
+      mode: 0660
+    register: ca_key
+
+  - name: Create certificate signing request (CSR) for CA certificate
+    community.crypto.openssl_csr_pipe:
+      privatekey_path: "{{ ca_key.filename }}"
+      common_name: "{{ inventory_hostname }}"
+      use_common_name_for_san: false  # since we do not specify SANs, don't use CN as a SAN
+      basic_constraints:
+        - 'CA:TRUE'
+    register: ca_csr
+
+  - name: Create The CA self-signed certificate
+    community.crypto.x509_certificate:
+      path: "{{ mariadb_certs_path }}/{{ mariadb_ca_cert_name }}"
+      csr_content: "{{ ca_csr.csr }}"
+      privatekey_path: "{{ ca_key.filename }}"
+      provider: selfsigned
+      group: "{{ mariadb_system_user }}"
+      owner: "{{ mariadb_system_group }}"
+      mode: 0660
+    register: ca_crt
+
+  - name: Create the private key for the server
+    community.crypto.openssl_privatekey:
+      path: "{{ mariadb_certs_path }}/{{ mariadb_server_key_name }}"
+      size: 2048
+      group: "{{ mariadb_system_user }}"
+      owner: "{{ mariadb_system_group }}"
+      mode: 0660
+    register: server_key
+
+  - name: Create certificate signing request  for Server certificate
+    community.crypto.openssl_csr_pipe:
+      privatekey_path: "{{ server_key.filename }}"
+      common_name: "{{ inventory_hostname }}.example.com"
+      use_common_name_for_san: false  # since we do not specify SANs, don't use CN as a SAN
+    register: server_csr
+
+  - name: Sign thethe CSR for the server
+    community.crypto.x509_certificate:
+      path: "{{ mariadb_certs_path }}/{{ mariadb_server_cert_name }}"
+      csr_content:  "{{ server_csr.csr }}"
+      provider: ownca
+      ownca_path: "{{ ca_crt.filename }}"
+      ownca_privatekey_path: "{{ ca_key.filename }}"
+      group: "{{ mariadb_system_user }}"
+      owner: "{{ mariadb_system_group }}"
+      mode: 0660
+    register: ca_crt
+
+  - name: Configure custom port and remote listening
+    ansible.builtin.blockinfile:
+      path: "{{ mariadb_config_file }}"
+      insertafter: "[mysqld]"
+      block: |
+        #BIND ADDRESS AND PORT
+        bind-address=0.0.0.0
+        port=3389
+        #SSL CONFIG
+        ssl-ca={{ mariadb_certs_path }}/{{ mariadb_ca_cert_name }}
+        ssl-cert={{ mariadb_certs_path }}/{{ mariadb_server_cert_name }}
+        ssl-key={{ mariadb_certs_path }}/{{ mariadb_server_key_name }}
+    notify:
+    - restart mysql
+
+  - name: Read the generated password
+    ansible.builtin.slurp:
+      src: "{{ mysql_db_password_file }}"
+    register: mysql_password
+
+  - name: Setting host facts for the mysql password
+    ansible.builtin.set_fact:
+      webapp_password: "{{ mysql_password['content'] | b64decode | trim }}"
+
+  - name: Read the generated ca-cert.pem file
+    ansible.builtin.slurp:
+      src: "{{ mariadb_certs_path }}/{{ mariadb_ca_cert_name }}"
+    register: cacert
+
+  - name: Setting host facts for the CA cert
+    ansible.builtin.set_fact:
+      cacert_contents: "{{ cacert['content'] | b64decode | trim }}"
+
+  - name: Modifying the Application DB User to require SSL
+    community.mysql.mysql_user:
+      login_host: localhost
+      login_port: "{{ mariadb_port }}"
+      login_user: root
+      login_password: "{{ webapp_password }}"
+      name: "{{ mariadb_username }}"
+      host: '%'
+      password: "{{ webapp_password }}"
+      priv: '*.*:ALL'
+      tls_requires:
+        ssl:
+      state: present
+
+  handlers:
+  - name: restart mysql
+    ansible.builtin.service:
+      name: mariadb
+      state: restarted
+      enabled: True  
+
+- name: Configure SSL for apache
+  hosts: "{{ apache_host }}"
+  gather_facts: False
+  vars_files: vars/ssl-vars.yml
+  tags: 
+  - apache
+  become: True
+  tasks:
+  - name: Create a file with the contents of the ca cert generated on the mariaDB host
+    ansible.builtin.copy:
+      content: "{{ hostvars[mariadb_host]['cacert_contents'] }}"
+      dest: "{{ apache_host_docroot }}/{{ mariadb_ca_cert_name }}"
+      
+  - name: copy vars php template
+    ansible.builtin.template:
+      src: templates/dbvars.php.j2
+      dest: "{{ apache_host_docroot }}/dbvars.php"
+
+  - name: Create directory to hold Apache key and cert
+    ansible.builtin.file:
+      path: "{{ apache_certs_path }}"
+      state: directory
+
+  - name: Create the private key (4096 bits)
+    community.crypto.openssl_privatekey:
+      path: "{{ apache_certs_path }}/certificate.key"
+      size: 4096
+
+  - name: Create a self-signed certificate
+    community.crypto.x509_certificate:
+      path: "{{ apache_certs_path }}/certificate.cert"
+      privatekey_path: "{{ apache_certs_path }}/certificate.key"
+      provider: selfsigned
+
+  - name: change SELinux context on cert and key file
+    community.general.sefcontext:
+      target: "{{ item }}"
+      setype: cert_t
+    loop:
+    - "{{ apache_certs_path }}/certificate.key"
+    - "{{ apache_certs_path }}/certificate.cert"
+   
+  - name: Apply new SELinux file context to filesystem
+    ansible.builtin.command: restorecon -irv "{{ apache_certs_path }}/"
+
+  - name: Install mod_ssl 
+    ansible.builtin.dnf:
+      name: mod_ssl
+      state: latest
+    notify: restart apache
+
+  - name: edit the ssl configuration file to point to the generated certificate
+    ansible.builtin.lineinfile:
+      path: "{{ apache_config_file }}"
+      regexp: '^SSLCertificateFile'
+      line: SSLCertificateFile {{ apache_certs_path }}/certificate.cert
+    notify: restart apache
+
+  - name: edit the ssl configuration file to point to the generated key
+    ansible.builtin.lineinfile:
+      path: "{{ apache_config_file }}"
+      regexp: '^SSLCertificateKeyFile'
+      line: SSLCertificateKeyFile {{ apache_certs_path }}/certificate.key
+    notify: restart apache
+    
+  - name: ensure that apache is running and enabled for idempotency
+    ansible.builtin.service:
+      name: httpd
+      state: started
+      enabled: True  
+      
+  handlers:
+  - name: restart apache
+    ansible.builtin.service:
+      name: httpd
+      state: restarted
+      enabled: True   
+```
+Commit and push your playbook to github. Back in Automation Controller , go to templates and click the ![launch](images/launch.png) icon next to your `SSL Setup` Job Template. After the job run is complete, visit the URL of `node1` over https (`https://<NODE1's_IP_ADDRESS>`). This time instead of an error, you should be able to access the application over https, and still see that it is connected to the databse over SSL:
+
+![HTTPS Encrypted](images/https-encrypted.png)
+
+> **Tip**
+>
+> The insecure warning your browser will show is due to the fact that we are using a self signed certificate that cannot be validated. In real environemnts real certificates would be used that can be validated and thus will not show the warning.
+
+We are almost done, as the application can still be reachable over http as well as https, we need to redircet all http requests to https. For the last time, lets add some tasks to the `Configure SSL for apache` play in our playbook in the `tasks` section:
+
+``` yaml
+  - name: Enable the mod_rewrite Apache module 
+    community.general.apache2_module:
+      state: present
+      name: rewrite
+      ignore_configcheck: True
+    notify: restart apache
+
+  - name: Configure http redirect
+    ansible.builtin.blockinfile:
+      path: "{{ apache_config_file }}"
+      insertafter: "## SSL Virtual Host Context"
+      block: |
+        <VirtualHost *:80>
+        RewriteEngine On
+        RewriteCond %{HTTPS} off
+        RewriteRule (.*) https://%{SERVER_NAME}
+        </VirtualHost>
+    notify: restart apache
+```
+
+The final tasks will use the `apache2_module` from the `community.general` collection to make sure that the Apache module `mod_rewrite` is enabled, and then use the `ansible.builtin.blockinfile` to make an entry in the Apache SSL configuration file to redirect all the http traffic to https.
+
+The Final play book will look like this:
+
+``` yaml
+---
+- name: Configure SSL on mysql
+  hosts: "{{ mariadb_host }}"
+  gather_facts: False
+  vars_files: vars/ssl-vars.yml
+  tags: 
+  - mysql
+  become: True
+  tasks:
+     
+  - name: Make sure that the directory to hold keys and certs exist
+    ansible.builtin.file:
+      path: "{{ mariadb_certs_path }}"
+      state: directory
+
+  - name: Generate a new 2048 bit key
+    community.crypto.openssl_privatekey:
+      path: "{{ mariadb_certs_path }}/{{ mariadb_ca_key_name }}"
+      size: 2048
+      group: "{{ mariadb_system_user }}"
+      owner: "{{ mariadb_system_group }}"
+      mode: 0660
+    register: ca_key
+
+  - name: Create certificate signing request (CSR) for CA certificate
+    community.crypto.openssl_csr_pipe:
+      privatekey_path: "{{ ca_key.filename }}"
+      common_name: "{{ inventory_hostname }}"
+      use_common_name_for_san: false  # since we do not specify SANs, don't use CN as a SAN
+      basic_constraints:
+        - 'CA:TRUE'
+    register: ca_csr
+
+  - name: Create The CA self-signed certificate
+    community.crypto.x509_certificate:
+      path: "{{ mariadb_certs_path }}/{{ mariadb_ca_cert_name }}"
+      csr_content: "{{ ca_csr.csr }}"
+      privatekey_path: "{{ ca_key.filename }}"
+      provider: selfsigned
+      group: "{{ mariadb_system_user }}"
+      owner: "{{ mariadb_system_group }}"
+      mode: 0660
+    register: ca_crt
+
+  - name: Create the private key for the server
+    community.crypto.openssl_privatekey:
+      path: "{{ mariadb_certs_path }}/{{ mariadb_server_key_name }}"
+      size: 2048
+      group: "{{ mariadb_system_user }}"
+      owner: "{{ mariadb_system_group }}"
+      mode: 0660
+    register: server_key
+
+  - name: Create certificate signing request  for Server certificate
+    community.crypto.openssl_csr_pipe:
+      privatekey_path: "{{ server_key.filename }}"
+      common_name: "{{ inventory_hostname }}.example.com"
+      use_common_name_for_san: false  # since we do not specify SANs, don't use CN as a SAN
+    register: server_csr
+
+  - name: Sign thethe CSR for the server
+    community.crypto.x509_certificate:
+      path: "{{ mariadb_certs_path }}/{{ mariadb_server_cert_name }}"
+      csr_content:  "{{ server_csr.csr }}"
+      provider: ownca
+      ownca_path: "{{ ca_crt.filename }}"
+      ownca_privatekey_path: "{{ ca_key.filename }}"
+      group: "{{ mariadb_system_user }}"
+      owner: "{{ mariadb_system_group }}"
+      mode: 0660
+    register: ca_crt
+
+  - name: Configure custom port and remote listening
+    ansible.builtin.blockinfile:
+      path: "{{ mariadb_config_file }}"
+      insertafter: "[mysqld]"
+      block: |
+        #BIND ADDRESS AND PORT
+        bind-address=0.0.0.0
+        port=3389
+        #SSL CONFIG
+        ssl-ca={{ mariadb_certs_path }}/{{ mariadb_ca_cert_name }}
+        ssl-cert={{ mariadb_certs_path }}/{{ mariadb_server_cert_name }}
+        ssl-key={{ mariadb_certs_path }}/{{ mariadb_server_key_name }}
+    notify:
+    - restart mysql
+
+  - name: Read the generated password
+    ansible.builtin.slurp:
+      src: "{{ mysql_db_password_file }}"
+    register: mysql_password
+
+  - name: Setting host facts for the mysql password
+    ansible.builtin.set_fact:
+      webapp_password: "{{ mysql_password['content'] | b64decode | trim }}"
+
+  - name: Read the generated ca-cert.pem file
+    ansible.builtin.slurp:
+      src: "{{ mariadb_certs_path }}/{{ mariadb_ca_cert_name }}"
+    register: cacert
+
+  - name: Setting host facts for the CA cert
+    ansible.builtin.set_fact:
+      cacert_contents: "{{ cacert['content'] | b64decode | trim }}"
+
+  - name: Modifying the Application DB User to require SSL
+    community.mysql.mysql_user:
+      login_host: localhost
+      login_port: "{{ mariadb_port }}"
+      login_user: root
+      login_password: "{{ webapp_password }}"
+      name: "{{ mariadb_username }}"
+      host: '%'
+      password: "{{ webapp_password }}"
+      priv: '*.*:ALL'
+      tls_requires:
+        ssl:
+      state: present
+
+  handlers:
+  - name: restart mysql
+    ansible.builtin.service:
+      name: mariadb
+      state: restarted
+      enabled: True  
+
+- name: Configure SSL for apache
+  hosts: "{{ apache_host }}"
+  gather_facts: False
+  vars_files: vars/ssl-vars.yml
+  tags: 
+  - apache
+  become: True
+  tasks:
+  - name: Create a file with the contents of the ca cert generated on the mariaDB host
+    ansible.builtin.copy:
+      content: "{{ hostvars[mariadb_host]['cacert_contents'] }}"
+      dest: "{{ apache_host_docroot }}/{{ mariadb_ca_cert_name }}"
+      
+  - name: copy vars php template
+    ansible.builtin.template:
+      src: templates/dbvars.php.j2
+      dest: "{{ apache_host_docroot }}/dbvars.php"
+
+  - name: Create directory to hold Apache key and cert
+    ansible.builtin.file:
+      path: "{{ apache_certs_path }}"
+      state: directory
+
+  - name: Create the private key (4096 bits)
+    community.crypto.openssl_privatekey:
+      path: "{{ apache_certs_path }}/certificate.key"
+      size: 4096
+
+  - name: Create a self-signed certificate
+    community.crypto.x509_certificate:
+      path: "{{ apache_certs_path }}/certificate.cert"
+      privatekey_path: "{{ apache_certs_path }}/certificate.key"
+      provider: selfsigned
+
+  - name: change SELinux context on cert and key file
+    community.general.sefcontext:
+      target: "{{ item }}"
+      setype: cert_t
+    loop:
+    - "{{ apache_certs_path }}/certificate.key"
+    - "{{ apache_certs_path }}/certificate.cert"
+   
+  - name: Apply new SELinux file context to filesystem
+    ansible.builtin.command: restorecon -irv "{{ apache_certs_path }}/"
+
+  - name: Install mod_ssl 
+    ansible.builtin.dnf:
+      name: mod_ssl
+      state: latest
+    notify: restart apache
+
+  - name: edit the ssl configuration file to point to the generated certificate
+    ansible.builtin.lineinfile:
+      path: "{{ apache_config_file }}"
+      regexp: '^SSLCertificateFile'
+      line: SSLCertificateFile {{ apache_certs_path }}/certificate.cert
+    notify: restart apache
+
+  - name: edit the ssl configuration file to point to the generated key
+    ansible.builtin.lineinfile:
+      path: "{{ apache_config_file }}"
+      regexp: '^SSLCertificateKeyFile'
+      line: SSLCertificateKeyFile {{ apache_certs_path }}/certificate.key
+    notify: restart apache
+    
+  - name: ensure that apache is running and enabled for idempotency
+    ansible.builtin.service:
+      name: httpd
+      state: started
+      enabled: True  
+  
+  - name: Enable the mod_rewrite Apache module 
+    community.general.apache2_module:
+      state: present
+      name: rewrite
+      ignore_configcheck: True
+    notify: restart apache
+
+  - name: Configure http redirect
+    ansible.builtin.blockinfile:
+      path: "{{ apache_config_file }}"
+      insertafter: "## SSL Virtual Host Context"
+      block: |
+        <VirtualHost *:80>
+        RewriteEngine On
+        RewriteCond %{HTTPS} off
+        RewriteRule (.*) https://%{SERVER_NAME}
+        </VirtualHost>
+    notify: restart apache
+
+  handlers:
+  - name: restart apache
+    ansible.builtin.service:
+      name: httpd
+      state: restarted
+      enabled: True   
+```
+For the last time in this section, commit and push your playbook to github. Back in Automation Controller , go to templates and click the ![launch](images/launch.png) icon next to your `SSL Setup` Job Template and wait for the Job to finish. Now go to the URL for `node` over http using the URL `http://<NODE1's_IP_ADDRESS>` and you should get redirected to https.
+
+![HTTPS Encrypted](images/https-encrypted.png)
+
+We now have a playbook that can consistantly apply the requirements laid out by the security team in an automated way.
 
 # Section 3: DETECT
 

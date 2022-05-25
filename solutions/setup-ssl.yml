@@ -17,6 +17,9 @@
     community.crypto.openssl_privatekey:
       path: "{{ mariadb_certs_path }}/{{ mariadb_ca_key_name }}"
       size: 2048
+      group: "{{ mariadb_system_user }}"
+      owner: "{{ mariadb_system_group }}"
+      mode: 0660
     register: ca_key
 
   - name: Create certificate signing request (CSR) for CA certificate
@@ -34,12 +37,18 @@
       csr_content: "{{ ca_csr.csr }}"
       privatekey_path: "{{ ca_key.filename }}"
       provider: selfsigned
+      group: "{{ mariadb_system_user }}"
+      owner: "{{ mariadb_system_group }}"
+      mode: 0660
     register: ca_crt
 
   - name: Create the private key for the server
     community.crypto.openssl_privatekey:
       path: "{{ mariadb_certs_path }}/{{ mariadb_server_key_name }}"
       size: 2048
+      group: "{{ mariadb_system_user }}"
+      owner: "{{ mariadb_system_group }}"
+      mode: 0660
     register: server_key
 
   - name: Create certificate signing request  for Server certificate
@@ -56,19 +65,10 @@
       provider: ownca
       ownca_path: "{{ ca_crt.filename }}"
       ownca_privatekey_path: "{{ ca_key.filename }}"
+      group: "{{ mariadb_system_user }}"
+      owner: "{{ mariadb_system_group }}"
+      mode: 0660
     register: ca_crt
-
-  - name: Change file ownership, group and permissions
-    ansible.builtin.file:
-      path: "{{ item }}"
-      owner: mysql
-      group: mysql
-      mode: '660'
-    loop:
-    - "{{ mariadb_certs_path }}/{{ mariadb_ca_key_name }}"
-    - "{{ mariadb_certs_path }}/{{ mariadb_ca_cert_name }}"
-    - "{{ mariadb_certs_path }}/{{ mariadb_server_key_name }}"
-    - "{{ mariadb_certs_path }}/{{ mariadb_server_cert_name }}"
 
   - name: Configure custom port and remote listening
     ansible.builtin.blockinfile:
@@ -79,7 +79,7 @@
         bind-address=0.0.0.0
         port=3389
         #SSL CONFIG
-        ssl-ca={{ mariadb_certs_path }}/{{ mariadb_ca_key_name }}
+        ssl-ca={{ mariadb_certs_path }}/{{ mariadb_ca_cert_name }}
         ssl-cert={{ mariadb_certs_path }}/{{ mariadb_server_cert_name }}
         ssl-key={{ mariadb_certs_path }}/{{ mariadb_server_key_name }}
     notify:
@@ -99,41 +99,66 @@
       src: "{{ mariadb_certs_path }}/{{ mariadb_ca_cert_name }}"
     register: cacert
 
-  - name: Setting host facts for the mysql password
+  - name: Setting host facts for the CA cert
     ansible.builtin.set_fact:
       cacert_contents: "{{ cacert['content'] | b64decode | trim }}"
+
+  - name: Modifying the Application DB User to require SSL
+    community.mysql.mysql_user:
+      login_host: localhost
+      login_port: "{{ mariadb_port }}"
+      login_user: root
+      login_password: "{{ webapp_password }}"
+      name: "{{ mariadb_username }}"
+      host: '%'
+      password: "{{ webapp_password }}"
+      priv: '*.*:ALL'
+      tls_requires:
+        ssl:
+      state: present
 
   handlers:
   - name: restart mysql
     ansible.builtin.service:
       name: mariadb
       state: restarted
-      enabled: True   
-
+      enabled: True  
 
 - name: Configure SSL for apache
   hosts: "{{ apache_host }}"
-  vars_files: vars/lab-setup.yml
+  gather_facts: False
+  vars_files: vars/ssl-vars.yml
   tags: 
   - apache
   become: True
   tasks:
-  - name: Create directory to hold key and cert
+  - name: Create a file with the contents of the ca cert generated on the mariaDB host
+    ansible.builtin.copy:
+      content: "{{ hostvars[mariadb_host]['cacert_contents'] }}"
+      dest: "{{ apache_host_docroot }}/{{ mariadb_ca_cert_name }}"
+      
+  - name: copy vars php template
+    ansible.builtin.template:
+      src: templates/dbvars.php.j2
+      dest: "{{ apache_host_docroot }}/dbvars.php"
+
+  - name: Create directory to hold Apache key and cert
     ansible.builtin.file:
       path: "{{ apache_certs_path }}"
       state: directory
 
-  - name: Create private key (RSA, 4096 bits)
+  - name: Create the private key (4096 bits)
     community.crypto.openssl_privatekey:
       path: "{{ apache_certs_path }}/certificate.key"
+      size: 4096
 
-  - name: Create simple self-signed certificate
+  - name: Create a self-signed certificate
     community.crypto.x509_certificate:
       path: "{{ apache_certs_path }}/certificate.cert"
       privatekey_path: "{{ apache_certs_path }}/certificate.key"
       provider: selfsigned
 
-  - name: change context on cert and key file
+  - name: change SELinux context on cert and key file
     community.general.sefcontext:
       target: "{{ item }}"
       setype: cert_t
@@ -164,22 +189,30 @@
       line: SSLCertificateKeyFile {{ apache_certs_path }}/certificate.key
     notify: restart apache
     
-  - name: ensure that apache is running and enabled
+  - name: ensure that apache is running and enabled for idempotency
     ansible.builtin.service:
       name: httpd
       state: started
       enabled: True  
+  
+  - name: Enable the mod_rewrite Apache module 
+    community.general.apache2_module:
+      state: present
+      name: rewrite
+      ignore_configcheck: True
+    notify: restart apache
 
-# Tasks to handle MySQL SSL Connection
-  - name: Create a file with the contents of the ca cert generated on the mariaDB host
-    ansible.builtin.copy:
-      content: "{{ hostvars[mariadb_host]['cacert_contents'] }}"
-      dest: "{{ apache_host_docroot }}/{{ mariadb_ca_cert_name }}"
-      
-  - name: copy vars php template
-    ansible.builtin.template:
-      src: templates/dbvars.php.j2
-      dest: "{{ apache_host_docroot }}/dbvars.php"
+  - name: Configure http redirect
+    ansible.builtin.blockinfile:
+      path: "{{ apache_config_file }}"
+      insertafter: "## SSL Virtual Host Context"
+      block: |
+        <VirtualHost *:80>
+        RewriteEngine On
+        RewriteCond %{HTTPS} off
+        RewriteRule (.*) https://%{SERVER_NAME}
+        </VirtualHost>
+    notify: restart apache
 
   handlers:
   - name: restart apache
