@@ -1,0 +1,22 @@
+---
+#Apache Variables
+apache_host: node1
+apache_config_file: /etc/httpd/conf.d/ssl.conf
+apache_host_docroot: /var/www/html
+apache_certs_path: /var/webapp
+
+#MariaDB Variables
+mariadb_host: node2
+mariadb_port: 3389
+mariadb_username: webappssl
+mariadb_db_name: webapp_db
+mysql_db_password_file: /tmp/mysql-password
+mariadb_config_file: /etc/my.cnf.d/mariadb-server.cnf
+mariadb_certs_path: /etc/pki/tls/private
+mariadb_ca_key_name: ca-key.pem
+mariadb_ca_cert_name: ca-cert.pem
+mariadb_server_key_name: server-key.pem
+mariadb_server_cert_name: server-cert.pem
+
+#Reporting variables
+reporting_host: node3

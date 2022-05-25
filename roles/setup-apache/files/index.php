@@ -79,7 +79,6 @@
         }
         catch(PDOException $e)
         {
-            echo $e;
             echo "Connection failed: " . $e->getMessage();
         }
         ?>
