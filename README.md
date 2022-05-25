@@ -31,7 +31,7 @@ This workshop was created to last about 90 minutes.
 
 *************************************************************************************************
 
-# Section 1: Initial Setup
+# Section 0: Introduction and Initial Setup
 
 ## Step 1 - Setup the Security Workshop Project
 
@@ -53,8 +53,8 @@ The lab environemnt described above will need to be configured before going thro
 
 <br>
 
-In order to import the setup playbook into Automation Controller, we will need to define a new project. 
-To start, click **Projects** and click on the ![Add](images/add.png) icon. Use the following values for your new Project:
+In order to import the setup playbook into Automation Controller, we will need to define a new project.
+To start, log on to Ansible Controller using your environemnt details, click **Projects** and click on the ![Add](images/add.png) icon. Use the following values for your new Project:
 
 | Key                              | Value                                                             | Note |
 |----------------------------------|-------------------------------------------------------------------|------|
@@ -77,7 +77,7 @@ click on the ![Save](images/save.png) icon, and you will be rediected to the pro
 
 > **Tip**
 >
-> We will be setting up another project to host the playbooks we will write during this workshop.
+> We will be setting up another project later to host the playbooks we will write during this workshop.
 
 
 ## Step 2 - Create the `Workshop Initial Setup` Job template
@@ -102,7 +102,7 @@ Now that the project sync is complete, Select **Templates** and click on the ![A
 
 ![Create Job Template](images/security-setup-template.png)
 
-Click SAVE and then Click LAUNCH to run the job. The job should run successfully and you should be able to see the details of the workshop configuration playbook.
+Click SAVE and then Click LAUNCH to run the job. The job will start running, and you will be able to see the output. Take a look at the tasks in the output panel to get an idea of what the setup playbook is doing. The job should complete successfully and you should be able to scroll through the details of the workshop configuration job output. 
 
 ![Run Job Template](images/security-setup-template-output.png)
 
@@ -110,66 +110,50 @@ The initial configuration for the workshop is now complete.
 
 ## Step 3 - Validate the setup
 
+The lab environemnt should now be setup as descibed earlier with MariaDB and Apache running. In order to validate, we can visit the web server to see the application that was deployed. Click **Inventories**
+on the left panel, and then click the name of our Inventory **Workshop Inventory**. Now that you are on the Inventory Details page, we will need to go select our Host. So click **HOSTS**, and click on **node1** since that is the webserver node (by default) and inspect the node's IP address under the `variables` section. 
+
+![Inevntory Node](images/inventory-node-1.png)
+
+> **Tip**
+>
+> The IP Address in your inventory will be different than the one in the screenshot above. Make sure you use the address specific to your lab environemnt.
+
+
+Copy that IP address and launch a new browser windows or tab and put in `http://<NODE1's_IP_ADDRESS_YOU_JUST_COPIED>` and look at the webpage:
+
+![Application over HTTP](images/http-non-encrypted.png)
+
+What you are seeing is the PHP application that was deployed, where the name of the application and its version are retrieved from the MariaDB instance installed on `node2`. There are also 2 variables on the page being shown, `Ssl_version` and `Ssl_cipher`, and both have no values being shown. These variables are showing the status of the database session signifying that the connection between the application and the database is not encrypted.
+
+> **Tip**
+>
+> Find more information on  MySQL Encrypted Connection TLS Protocols and Ciphers [here](https://dev.mysql.com/doc/refman/5.7/en/encrypted-connection-protocols-ciphers.html).
+
+Now try using `https` to access the same page by going to `https://<NODE1's_IP_ADDRESS_YOU_JUST_COPIED>`. You should get an `ERR_CONNECTION_REFUSED`. That is expected since Apache was only configured to listen for http connections.
+
+![Application over HTTPS](images/https-non-encrypted.png)
+
+
+Now that the setup is complete, we can introduce the framework that we will be using for this workshop, and that is the `NIST Cybersecurity Framework Version 1.1` as shown in the following diagram (Credit: N. Hanacek/NIST):
+
+![Credit: N. Hanacek/NIST](images/cybersecurity_framework_version_1.1_nice.png)
+
+In this workshop, we will cover all the stages of this framework on a very small subset of requirements to convey how Ansible and the Red Hat Ansible Automation Platform could be valuable to security teams looking for a way to automate and streamline their day to day security processes and requirements.
+
+
+# Section 1: IDENTIFY
+
+In the first section we will discuss the `IDENTIFY` stage of the framework by defining the requiremnents that should be met/enforced. These requirements are going to be our target for the remainder of this workshop as we work on their enforcement.
+
+For this workshop we will assume that the security team have highlighted the following requirements with regards to LAMP stacks:
+
+1. **All traffic to the web application should be encrypted.**
+2. **All traffic between the web application and the database should be encrypted.**
 
 
 
-
-
-
-
-
-
-
-To start, we will need to go to our Inventory. So click **Inventories**
-on the left panel, and then click the name of our Inventory **Workshop Inventory**. Now that you are on the Inventory Details page, we
-will need to go select our Host. So click **HOSTS**.
-
-Next to each host is a checkbox. Check the box next to each host you
-want to run an ad-hoc Command on. Select the **Run Command** button.
-
-![Run Command](images/8-chocolatey-adhoc-run-command.png)
-
-This will pop up the **Execute Command** window. Fill out this form as follows:
-
-| Key                   | Value                                  | Note                                                           |
-| --------------------- | -------------------------------------- | -------------------------------------------------------------- |
-| Module                | `win_chocolatey`                       |                                                                |
-| Arguments             | `name=git state=present`               | The name and state of the package                              |
-| Limit                 |                                        | This should display the host you selected in the previous step |
-
-Click the **Next** button
-
-| Key                   | Value                                  | Note |
-| --------------------- | -------------------------------------- | ---- |
-| Execution environment | windows workshop execution environment |      |
-
-Click the **Next** button
-
-| Key                | Value               | Note |
-| ------------------ | ------------------- | ---- |
-| Machine credential | Workshop Credential |      |
-|                    |                     |      |
-
-Click the **Next** button, and once you click **LAUNCH** you will be redirected to the Job log.
-
-![Win\_Chocolatey Job Output](images/8-chocolatey-run-win_chocolatey-result.png)
-
-We see that the output reports a CHANGED status to indicate that `git` was installed. The results also shows a warning that the Chocolatey client was missing from the system, so it was installed as a part of this task run. Future tasks that use the `win_chocolatey` module should now detect the client and use it without the need to install anything. To verify, re-run the job by clicking on the rocketship icon in the **Output** section, the output now should not have a warning, and will also not report any changes, but instead a SUCCESS status as the `win_chocolatey` module (like most Ansible modules) is idempotent (the run will also take less time because as the previous run installed 2 packages, this run installs none).
-
-![Win\_Chocolatey re run Job Output](images/8-chocolatey-rerun-win_chocolatey-result.png)
-
-And just like that we have `git` installed.
-
-## Step 2 - Install multiple packages with specific versions
-
-In the last step we installed one package in an ad-hoc fashion, however in reality it is more likely that we would want to include package installation as one step in a multi step play. It is also likely that we would want to install multiple packages (possibly even specific versions of said packages). In this exercise we will be doing just that.
-
-Let's start by going back to Visual Studio Code. Under the *WORKSHOP_PROJECT* section Create a directory called **chocolatey** and a file called
-`install_packages.yml`
-
-You should now have an editor open in the right pane that can be used for creating your playbook.
-
-![Empty install\_packages.yml](images/8-chocolatey-empty-install_packages-editor.png)
+# Section 2: PROTECT
 
 First we will define our play:
 
@@ -223,321 +207,10 @@ We added 4 tasks to the tasks section:
 >
 > The `win_chocolatey` module's `name` attribute can actually take a list of packages avoiding the need for a loop, however using a loop will allow you to specify the versions of each package, and install them sequentially if order is relevant. for more information on the `win_chocolatey` module take a look at the [docs](https://docs.ansible.com/ansible/latest/collections/chocolatey/chocolatey/win_chocolatey_module.html).
 
-The completed playbook `install_packages.yml` should look like this:
+# Section 3: DETECT
 
-```yaml
----
-- name: Install Specific versions of packages using Chocolatey
-  hosts: all
-  gather_facts: false
-  vars:
-    choco_packages:
-      - name: nodejs
-        version: 13.0.0
-      - name: python
-        version: 3.6.0
-  tasks:
+# Section 4: RESPOND
 
-  - name: Install specific versions of packages sequentially
-    chocolatey.chocolatey.win_chocolatey:
-      name: "{{ item.name }}"
-      version: "{{ item.version }}"
-    loop: "{{ choco_packages }}"
-
-  - name: Check python version
-    ansible.windows.win_command: python --version
-    register: check_python_version
-
-  - name: Check nodejs version
-    ansible.windows.win_command: node --version
-    register: check_node_version
-
-  - ansible.builtin.debug:
-      msg: Python Version is {{ check_python_version.stdout_lines[0] }} and NodeJS version is {{ check_node_version.stdout_lines[0] }}
-```
-
-Now that the playbook is ready:
-
-* Save your work by Clicking `File > Save` from the menu (or using the Ctrl+S shortcut).
-* Commit your changes to git - use a relevant commit message such as *Adding install\_packages.yml*.
-* Push the committed changes to your repository by clicking the circular arrows.
-* (Optional) Verify that your code is in git by going to GitLab using the information under **GitLab Access**.
-
-Now head back to Automation Controller, and sync your Project so that Controller Picks up the new playbook. Click **Projects** and then click the sync icon next to your project.
-
-![Project Sync](images/8-project-sync.png)
-
-Once this is complete, we will create a new job template. Select **Templates** and click on the ![Add](images/add.png) icon, and select Add Job Template. Use the following values for your new Template:
-
-| Key         | Value                                            | Note |
-|-------------|--------------------------------------------------|------|
-| Name        | Chocolatey - Install Packages                    |      |
-| Description | Template for the install_packages playbook       |      |
-| Job Type    | Run                                              |      |
-| Inventory   | Workshop Inventory                               |      |
-| Project     | Ansible Workshop Project                         |      |
-| Execution Environment | windows workshop execution environment             |      |
-| Playbook    | `chocolatey/install_packages.yml`                |      |
-| Credential  | Type: **Machine**. Name: **Workshop Credential**     |      |
-| Limit       | windows                                          |      |
-| Options     |                                                  |      |
-
-<br>
-
-![Create Job Template](images/8-create-install-packages-job-template.png)
-
-Click SAVE and then Click LAUNCH to run the job. The job should run successfully and you should be able to see Ansible looping and installing the packages specified in our variable
-
-![Run Job Template](images/8-install-packages-job-run-successful.png)
-
-> **Tip**
->
-> By now you should be familiar with the flow of creating or editing playbooks, committing your changes and pushing them to git. You should also be comfortable with refreshing your project, creating and running job templates in Automation Controller. Later steps will no longer list each and every step to do so.
-
-## Step 3 - Updating all installed packages
-
-The `win_chocolatey` module can do more than just install packages, it is also used to uninstall and update packages. The action the module does is based on the value you pass to the `state` parameter. Some of the options you can pass include:
-
-* `present`: Will ensure the package is installed.
-* `absent` : Will ensure the package is not installed.
-* `latest`: Will ensure the package is installed to the latest available version.
-
-The last playbook did not explicitly define and set a value for `state`, so the default value `present` was used as the set value to the state parameter to install packages, however we installed older versions of packages on purpose, so now we want to update those packages.
-
-In Visual Studio Code, create a new file under the `chocolatey` folder with the name `update_packages.yml`. In this playbook we will create a play that uses the `win_chocolatey` module with `latest` passed in as a value to the `state` parameter. Since we want to update all the packages previously installed by Chocolatey, no specific package name will be provided to the `name` parameter, instead the value `all` will be used.
-
-> **Tip**
->
-> Information on using `all` as a value that will be set to the `name` attribute can be found in the `win_chocolatey`'s module [docs](https://docs.ansible.com/ansible/latest/collections/chocolatey/chocolatey/win_chocolatey_module.html). Always check the documentation of a module that you are using for the first time, often there will be useful information that will save you a lot of work.
-
-The contents of `update_packages.yml` are:
-
-```yaml
----
-- name: Update all packages using Chocolatey
-  hosts: all
-  gather_facts: false
-  tasks:
-
-  - name: Update all installed packages
-    chocolatey.chocolatey.win_chocolatey:
-      name: all
-      state: latest
-
-  - name: Check python version
-    ansible.windows.win_command: python --version
-    register: check_python_version
-
-  - name: Check nodejs version
-    ansible.windows.win_command: node --version
-    register: check_node_version
-
-  - ansible.builtin.debug:
-      msg: Python Version is {{ check_python_version.stdout_lines[0] }} and NodeJS version is {{ check_node_version.stdout_lines[0] }}
-```
-
-The other tasks are there so that we can verify the versions of `nodejs` and `python` after the update task has been run. And that's it, simple right?
-
-Now go ahead and make sure your new playbook is in Git, and that Automation Controller can see it, and then create and run a new Job template with the following values:
-
-> **Tip**
->
-> Sine Almost everything will be similar to the first job template we created to install packages, you can `copy` that job template by going to `Tempates` and clicking on the ![copy](images/copy.png) icon next to the `Chocolatey - Install Packages` template. This will create a copy of that template that you can then Edit by clicking on its name, clicking on Edit and making the changes to the name, description and playbook to run. Make sure that the project us updated first otherwise the new playbook will not be available to use. If you prefer you can also create a new jpb template from scratch, the choice is yours.
-
-| Key         | Value                                            | Note |
-|-------------|--------------------------------------------------|------|
-| Name        | Chocolatey - Update Packages                     |      |
-| Description | Template for the update_packages playbook        |      |
-| Job Type    | Run                                              |      |
-| Inventory   | Workshop Inventory                               |      |
-| Project     | Ansible Workshop Project                         |      |
-| Execution Environment | windows workshop execution environment             |      |
-| Playbook    | `chocolatey/update_packages.yml`                 |      |
-| Credential  | Type: **Machine**. Name: **Workshop Credential**     |      |
-| Limit       | windows                                          |      |
-| Options     |                                                  |      |
-
-After running the new Template, examine the `debug` task message, and compare the versions to the ones from the `install_packages` job output. The versions should be higher as those packages were updates (the `git` package that we installed using an adhoc command will also be checked for an update - unlikely that there will be one after minutes of installation).
-
-![Run Job Template](images/8-update-packages-job-run-successful.png)
-
-# Section 2: Chocolatey facts and configurations
-
-Even though the `win_chocolatey` module is what actually is used to manage packages with Chocolatey, it is not the only Chocolatey module available in the `chocolatey.chocolatey` Ansible collection, there are other modules to help you manage and configure Chocolatey on your Windows targets. In this exercise we will take a look at two of them: `win_chocolatey_facts` and `win_chocolatey_config`
-
-## Step 1 - Gathering Chocolatey facts
-
-The first module we will use is the `win_chocolatey_facts` module from the `chocolatey.chocolatey` collection. This module is used to gather information from Chocolatey, such as installed packages, configuration, features and sources, which is useful for tasks suck as report generation, or conditionals defined on other tasks.
-
-> **Tip**
->
-> Read more on the `win_chocolatey_facts` in the [docs](https://docs.ansible.com/ansible/latest/collections/chocolatey/chocolatey/win_chocolatey_facts_module.html).
-
-So let's take a closer look at the information gathered by this module by writing a simple playbook to collect and display the collected information.
-
-In Visual Studio Code, under the `chocolatey` folder, create a new file called `chocolatey_configuration.yml`. The contents of that file should be as follows:
-
-```yaml
----
-- name: Chocolatey Facts and Configuration
-  hosts: all
-  gather_facts: false
-  tasks:
-
-  - name: Gather facts from Chocolatey
-    chocolatey.chocolatey.win_chocolatey_facts:
-
-  - name: Displays the gathered facts
-    ansible.builtin.debug:
-      var: ansible_chocolatey
-```
-
-The first task uses `win_chocolatey_facts` from the `chocolatey.chocolatey` collection to gather all the available information from Chocolatey on the target Windows machine, and will store this information in a variable named `ansible_chocolatey`, which is using the `debug` module from the `ansible.builtin` collection to print the contents of to examine them closer.
-
-Add your new playbook to your source control repo, and sync your project in Automation Controller, then create and run a new job template with the following values:
-
-| Key         | Value                                            | Note |
-|-------------|--------------------------------------------------|------|
-| Name        | Chocolatey - Facts and configuration             |      |
-| Description | Template for the chocolatey_configuration playbook |      |
-| Job Type    | Run                                              |      |
-| Inventory   | Workshop Inventory                               |      |
-| Project     | Ansible Workshop Project                         |      |
-| Execution Environment | windows workshop execution environment             |      |
-| Playbook    | `chocolatey/chocolatey_conguration.yml`          |      |
-| Credential  | Type: **Machine**. Name: **Workshop Credential**     |      |
-| Limit       | windows                                          |      |
-| Options     |                                                  |      |
-
-<br>
-
-The output of the job should show you the contents of the `ansible_chocolatey` variable collected in the first task.
-
-![Run Job Template](images/8-chocolatey-configuration-job-run-1-successful.png)
-
-Scroll through the output and observe the values, you can see the configuration of the Chocolatey client on the Windows target, the enabled and disabled features, the installed packages (do you see the packages we installed in previous exercises?) as well as the sources from which we are installing packages (more on this later!). Note that this information is in a JSON format, so you can access individual values by traversing the object tree. For example if I am only interested in information on the installed packages to let's say generate a report of installed packages, I can use the `ansible_chocolatey.packages` key to access those values.
-
-<br>
-
-> **Tip**
->
-> We really did not need to use a `debug` task just to see the information collected by the `win_chocolatey_facts` module, instead, in Automation Controller's job output pane click on the result of running the task on the Windows target, which will open the host details dialog for that specific host, which shows information about the host affected by the selected event and the output of that event (In this case, the JSON object returned by the `win_chocolatey_facts` module run can be seen under the `JSON` tab in the dialog box)
-
-<br>
-
-## Step 2 - Configuring Chocolatey
-
-In the previous step, we saw that we can gather the configurations of the Chocolatey client on the windows target using the `win_chocolatey_facts` module, but what if we want to modify those configurations? Well, there is a module for that!
-
-The `win_chocolatey_config` module from the `chocolatey.chocolatey` collection can be used to manage Chocolatey configurations by changing the values of configuration options, or unsetting them all together.
-
-<br>
-
-> **Tip**
->
-> Read more on the `win_chocolatey_config` in the [docs](https://docs.ansible.com/ansible/latest/collections/chocolatey/chocolatey/win_chocolatey_config_module.html).
-
-<br>
-
-> **Tip**
->
-> Read more on Chocolatey configuration [here](https://docs.chocolatey.org/en-us/configuration).
-
-We will change the values of two configuration options: `cacheLocation` and `commandExecutionTimeoutSeconds`. In the output of the previous step we saw that the `cacheLocation` was unset or did not have a value configured - the default setting, and that the value for `commandExecutionTimeoutSeconds` was set to the default value of 2700. We will modify those configuration options to:
-
-* set `cacheLocation` to `C:\ChocoCache`.
-* set `commandExecutionTimeoutSeconds` to 1 hour or `3600` seconds.
-
-In Visual Studio Code, edit the `chocolatey_configuration.yml` playbook, to add the following tasks:
-
-```yaml
-  - name: Create a directory for the new Chocolatey caching directory
-    ansible.windows.win_file:
-      path: C:\ChocoCache
-      state: directory
-
-  - name: Configure Chocolatey to use the new directory as the cache location
-    chocolatey.chocolatey.win_chocolatey_config:
-      name: cacheLocation
-      state: present
-      value: C:\ChocoCache
-
-  - name: Change the Execution Timeout Setting
-    chocolatey.chocolatey.win_chocolatey_config:
-      name: commandExecutionTimeoutSeconds
-      state: present
-      value: 3600
-
-  - name: ReGather facts from Chocolatey after new reconfiguring
-    chocolatey.chocolatey.win_chocolatey_facts:
-
-  - name: Displays the gathered facts
-    ansible.builtin.debug:
-      var: ansible_chocolatey.config
-```
-
-These new tasks will perform the following:
-
-* Create the directory `C:\ChocoCache` using the `win_file` module from the `ansible.windows` collection.
-* Modify the value of `cacheLocation` to the newly created directory using `win_chocolatey_config` from the `chocolatey.chocolatey` collection.
-* Modify the value of `commandExecutionTimeoutSeconds` to `3600`.
-* Re gather the Chocolatey facts after modifying the configuration values.
-* And Finally print out the `config` section from the refreshed Chocolatey facts.
-
-The contents of the `chocolatey_configuration.yml` playbook should now look like this:
-
-```yaml
----
-- name: Chocolatey Facts and Configuration
-  hosts: all
-  gather_facts: false
-  tasks:
-
-  - name: Gather facts from Chocolatey
-    chocolatey.chocolatey.win_chocolatey_facts:
-
-  - name: Displays the gathered facts
-    ansible.builtin.debug:
-      var: ansible_chocolatey
-
-  - name: Create a directory for the new Chocolatey caching directory
-    ansible.windows.win_file:
-      path: C:\ChocoCache
-      state: directory
-
-  - name: Configure Chocolatey to use the new directory as the cache location
-    chocolatey.chocolatey.win_chocolatey_config:
-      name: cacheLocation
-      state: present
-      value: C:\ChocoCache
-
-  - name: Change the Execution Timeout Setting
-    chocolatey.chocolatey.win_chocolatey_config:
-      name: commandExecutionTimeoutSeconds
-      state: present
-      value: 3600
-
-  - name: ReGather facts from Chocolatey after new reconfiguring
-    chocolatey.chocolatey.win_chocolatey_facts:
-
-  - name: Displays the gathered facts
-    ansible.builtin.debug:
-      var: ansible_chocolatey.config
-```
-
-Commit your changes and push them to source control, sync your project in Automation Controller and run the `Chocolatey - Facts and Configuration` job template.
-> **Tip**
->
-> Back in [exercise 1](../1-tower), when you created the project in Automation Controller, you checked an option to `UPDATE REVISION ON LAUNCH` - so we did not really need to refresh the project in Controller, but just in case that option was missed...
-
-The playbook should run and make the configuration changes, and the output from the last `debug` task showing the value of the `ansible_chocolatey.config` variable should reflect those changes and show the new values for `cacheLocation` and `commandExecutionTimeoutSeconds`.
-
-![Run Job Template](images/8-chocolatey-configuration-job-run-2-successful.png)
-
-<br><br>
-
-And thats it. This exercise covered most Chocolatey related Ansible modules available (with the exception of `win_chocolatey_source` and `win_chocolatey_feature` which you can read about [here](https://docs.ansible.com/ansible/latest/collections/chocolatey/chocolatey/win_chocolatey_feature_module.html) and [here](https://docs.ansible.com/ansible/latest/collections/chocolatey/chocolatey/win_chocolatey_source_module.html). Hopefully you got a taste of the possibilities by using Ansible together with Chocolatey and the `chocolatey.chocolatey` collection to manage your Windows packages.
-
-
+# Section 5: RECOVER
 ---
 ![Red Hat Ansible Automation](images/rh-ansible-automation-platform.png)
