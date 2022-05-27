@@ -1,0 +1,455 @@
+<html lang="en">
+   <head>
+      <meta charset="utf-8">
+      <title>Application/Database Compliance Check Report</title>
+      <style>
+         p.hostname {
+         color: #000000;
+         font-weight: bolder;
+         font-size: large;
+         margin: auto;
+         width: 50%;
+         }
+         #subtable {
+         background: #ebebeb;
+         margin: 0px;
+         width: 100%;
+         }
+         #subtable tbody tr td {
+         padding: 5px 5px 5px 5px;
+         }
+         #subtable thead th {
+         padding: 5px;
+         }
+         * {
+         -moz-box-sizing: border-box;
+         -webkit-box-sizing: border-box;
+         box-sizing: border-box;
+         font-family: "Open Sans", "Helvetica";
+         }
+         a {
+         color: #ffffff;
+         }
+         p {
+         color: #ffffff;
+         }
+         h1 {
+         text-align: center;
+         color: #ffffff;
+         }
+         body {
+         background:#999999;
+         padding: 0px;
+         margin: 0px;
+         font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+         }
+         table {
+         border-collapse: separate;
+         background:#fff;
+         @include border-radius(5px);
+         @include box-shadow(0px 0px 5px rgba(0,0,0,0.3));
+         }
+         .main_net_table {
+         margin:50px auto;
+         }
+         .main_net_table {
+         margin:50px auto;
+         }
+         thead {
+         @include border-radius(5px);
+         }
+         thead th {
+         font-size:16px;
+         font-weight:400;
+         color:#fff;
+         @include text-shadow(1px 1px 0px rgba(0,0,0,0.5));
+         text-align:left;
+         padding:20px;
+         border-top:1px solid #858d99;
+         background: #353a40;
+         &:first-child {
+         @include border-top-left-radius(5px);
+         }
+         &:last-child {
+         @include border-top-right-radius(5px);
+         }
+         }
+         tbody tr td {
+         font-weight:400;
+         color:#5f6062;
+         font-size:13px;
+         padding:20px 20px 20px 20px;
+         border-bottom:1px solid #e0e0e0;
+         }
+         tbody tr:nth-child(2n) {
+         background:#f0f3f5;
+         }
+         tbody tr:last-child td {
+         border-bottom:none;
+         &:first-child {
+         @include border-bottom-left-radius(5px);
+         }
+         &:last-child {
+         @include border-bottom-right-radius(5px);
+         }
+         }
+         td {
+         vertical-align: top;
+         }
+         span.highlight {
+         background-color: yellow;
+         }
+         .expandclass {
+         color: #5f6062;
+         }
+         .content{
+         display:none;
+         margin: 10px;
+         }
+         header {
+         width: 100%;
+         position: initial;
+         float: initial;
+         padding: 0;
+         margin: 0;
+         border-radius: 0;
+         height: 88px;
+         background-color: #171717;
+         align-items: center;
+         }
+         .header-container {
+         margin: 0 auto;
+         padding: 5px 0;
+         text-align: center;
+         width: 100%;
+         height: 100%;
+         }
+         .header-logo {
+         width: 137px;
+         border: 0;
+         margin: 0;
+         margin-left: 15px;
+         }
+         .header-link {
+         margin-left: 40px;
+         text-decoration: none;
+         cursor: pointer;
+         text-transform: uppercase;
+         font-size: 15px;
+         font-family: 'Red Hat Text';
+         font-weight: 500;
+         }
+         .header-link:hover {
+         text-shadow: 0 0 0.02px white;
+         text-decoration: none;
+         }
+         table.net_info td {
+         padding: 5px;
+         }
+         p.expandclass:hover {
+         text-decoration: underline;
+         color: #EE0000;
+         cursor: pointer;
+         }
+         .summary_info {
+         }
+         .ui-state-active, .ui-widget-content .ui-state-active, .ui-widget-header .ui-state-active, a.ui-button:active, .ui-button:active, .ui-button.ui-state-active:hover {
+         border: 1px solid #5F0000;
+         background: #EE0000;
+         }
+         div#net_content {
+         padding: 0px;
+         height: auto !important;
+         }
+         img.router_image {
+         vertical-align: middle;
+         padding: 0px 10px 10px 10px;
+         width: 50px;
+         }
+         table.net_info {
+         width: 100%;
+         }
+         p.internal_label {
+         color: #000000;
+         }
+      </style>
+      <link href='https://fonts.googleapis.com/css?family=Open+Sans' rel='stylesheet' type='text/css'>
+      <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>  
+      <script type="text/javascript">  
+         $(document).ready(function () {  
+                 $('tr.parent')  
+                     .css("cursor", "pointer")  
+                     .attr("title", "Click to expand/collapse")  
+                     .click(function () {  
+                         $(this).siblings('.child-' + this.id).toggle();  
+                     });  
+                 $('tr[@class^=child-]').hide().children('td');  
+         });  
+      </script>  
+   </head>
+   <body>
+      <div class="wrapper">
+         <header>
+            <div class="header-container">
+               <h1>Application/Database Compliance Check Report</h1>
+            </div>
+         </header>
+         <section>
+            <div id="accordion">
+               <table class="main_net_table" id="detail_table" style="width:70%">
+                  <thead>
+                     <tr>
+                        <th style="width:20%">Host</th>
+                        <th style="width:20%">FQDN </th>
+                        <th style="width:20%">OS</th>
+                        <th style="width:20%">OS Version</th>
+                        <th style="width:20%">kernel</th>
+                     </tr>
+                  </thead>
+                  <tbody>
+                     {% for host in play_hosts %}
+                     {% if hostvars[host].ansible_distribution is defined %}
+                     <tr class="parent" id="{{ host | replace(".", "") }}" title="Click to expand/collapse" style="cursor: pointer;"> 
+                     <td>{{ host }}</td>
+                     <td>{{ hostvars[host].ansible_fqdn }}</td>
+                     <td>{{ hostvars[host].ansible_distribution }}</td>
+                     <td>{{ hostvars[host].ansible_distribution_version }}</td>
+                     <td>{{ hostvars[host].ansible_kernel }}</td>
+                     </tr>
+                     <!--MariaDB Hosts Values-->                     
+                     {% if host in mariadb_host %}
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td style="text-align: left;"><strong>MariaDB Host</strong></td>
+                     <td></td>
+                     <td style="text-align: left;"><strong>Check</strong></td>
+                     <td style="text-align: left;"><strong>Configured</strong></td>
+                     <td style="text-align: center;"><strong>Compliant</strong></td>
+                     </tr>
+                     <!--CA Cert Common Name-->
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td></td>
+                     <td></td>
+                     <td style="text-align: left;">CA Cert common Name</td>
+                     <td style="text-align: left;">{{ hostvars[host].ca_cert_valid.subject.commonName }}</td>
+                     {% if hostvars[host].ca_cert_valid.subject.commonName == host %}
+                     <td style="text-align: center; vertical-align: middle;">&#9989;</td>
+                     {% else %}
+                     <td style="text-align: center; vertical-align: middle;">&#10060;</td>
+                     {% endif %}
+                     </tr>
+                     <!--CA Cert Expiry status-->
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td></td>
+                     <td></td>
+                     <td style="text-align: left;">CA Cert Expired</td>
+                     <td style="text-align: left;">{{ hostvars[host].ca_cert_valid.expired }}</td>
+                     {% if not hostvars[host].ca_cert_valid.expired | bool %}
+                     <td style="text-align: center; vertical-align: middle;">&#9989;</td>
+                     {% else %}
+                     <td style="text-align: center; vertical-align: middle;">&#10060;</td>
+                     {% endif %}
+                     </tr>
+                     <!--Server Cert Common Name-->
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td></td>
+                     <td></td>
+                     <td style="text-align: left;">Server Cert common Name</td>
+                     <td style="text-align: left;">{{ hostvars[host].server_cert_valid.subject.commonName }}</td>
+                     {% set server_ca_name_compare = host + '.example.com'%}
+                     {% if hostvars[host].server_cert_valid.subject.commonName == server_ca_name_compare %}
+                     <td style="text-align: center; vertical-align: middle;">&#9989;</td>
+                     {% else %}
+                     <td style="text-align: center; vertical-align: middle;">&#10060;</td>
+                     {% endif %}
+                     </tr>
+                     <!--Server Cert Expiry status-->
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td></td>
+                     <td></td>
+                     <td style="text-align: left;">Server Cert Expired</td>
+                     <td style="text-align: left;">{{ hostvars[host].server_cert_valid.expired }}</td>
+                     {% if not hostvars[host].server_cert_valid.expired | bool %}
+                     <td style="text-align: center; vertical-align: middle;">&#9989;</td>
+                     {% else %}
+                     <td style="text-align: center; vertical-align: middle;">&#10060;</td>
+                     {% endif %}
+                     </tr>
+                     <!--Verify The Server Cert-->
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td></td>
+                     <td></td>
+                     <td style="text-align: left;">Server Cert Verify</td>
+                     <td style="text-align: left;">{{ hostvars[host].openssl_verify_result.stdout }}</td>
+                     {% if 'OK' in hostvars[host].openssl_verify_result.stdout %}
+                     <td style="text-align: center; vertical-align: middle;">&#9989;</td>
+                     {% else %}
+                     <td style="text-align: center; vertical-align: middle;">&#10060;</td>
+                     {% endif %}
+                     </tr>
+                     <!--MariaDB Bind Address-->
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td></td>
+                     <td></td>
+                     <td style="text-align: left;">MariaDB Bind Address</td>
+                     <td style="text-align: left;">{{ not hostvars[host].mariadb_cfg_bind_address.changed }}</td>
+                     {% if not hostvars[host].mariadb_cfg_bind_address.changed %}
+                     <td style="text-align: center; vertical-align: middle;">&#9989;</td>
+                     {% else %}
+                     <td style="text-align: center; vertical-align: middle;">&#10060;</td>
+                     {% endif %}
+                     </tr>
+                     <!--MariaDB Port-->
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td></td>
+                     <td></td>
+                     <td style="text-align: left;">MariaDB Port</td>
+                     <td style="text-align: left;">{{ not hostvars[host].mariadb_cfg_listen_port.changed }}</td>
+                     {% if not hostvars[host].mariadb_cfg_listen_port.changed %}
+                     <td style="text-align: center; vertical-align: middle;">&#9989;</td>
+                     {% else %}
+                     <td style="text-align: center; vertical-align: middle;">&#10060;</td>
+                     {% endif %}
+                     </tr>
+                     <!--MariaDB CA Cert Configuration-->
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td></td>
+                     <td></td>
+                     <td style="text-align: left;">MariaDB CA Cert Configuration</td>
+                     <td style="text-align: left;">{{ not hostvars[host].mariadb_cfg_ca_cert.changed }}</td>
+                     {% if not hostvars[host].mariadb_cfg_ca_cert.changed %}
+                     <td style="text-align: center; vertical-align: middle;">&#9989;</td>
+                     {% else %}
+                     <td style="text-align: center; vertical-align: middle;">&#10060;</td>
+                     {% endif %}
+                     </tr>
+                     <!--MariaDB Server Key Configuration-->
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td></td>
+                     <td></td>
+                     <td style="text-align: left;">MariaDB Server Key Configuration</td>
+                     <td style="text-align: left;">{{ not hostvars[host].mariadb_cfg_server_key.changed }}</td>
+                     {% if not hostvars[host].mariadb_cfg_server_key.changed %}
+                     <td style="text-align: center; vertical-align: middle;">&#9989;</td>
+                     {% else %}
+                     <td style="text-align: center; vertical-align: middle;">&#10060;</td>
+                     {% endif %}
+                     </tr>
+                     <!--MariaDB Server Cert Configuration-->
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td></td>
+                     <td></td>
+                     <td style="text-align: left;">MariaDB Server Cert Configuration</td>
+                     <td style="text-align: left;">{{ not hostvars[host].mariadb_cfg_server_cert.changed }}</td>
+                     {% if not hostvars[host].mariadb_cfg_server_cert.changed %}
+                     <td style="text-align: center; vertical-align: middle;">&#9989;</td>
+                     {% else %}
+                     <td style="text-align: center; vertical-align: middle;">&#10060;</td>
+                     {% endif %}
+                     </tr>
+                     <!--MariaDB Server DB User SSL Configuration-->
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td></td>
+                     <td></td>
+                     <td style="text-align: left;">MariaDB User SSL Configuration</td>
+                     <td style="text-align: left;">{{ not hostvars[host].dbuser_requires_ssl.changed }}</td>
+                     {% if not hostvars[host].dbuser_requires_ssl.changed %}
+                     <td style="text-align: center; vertical-align: middle;">&#9989;</td>
+                     {% else %}
+                     <td style="text-align: center; vertical-align: middle;">&#10060;</td>
+                     {% endif %}
+                     </tr>
+                     <!--MariaDB Server DB User SSL Version Info-->
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td></td>
+                     <td></td>
+                     <td style="text-align: left;">MariaDB User SSL Version</td>
+                     <td style="text-align: left;">{{ hostvars[host].ssl_version_check.query_result[0][0].Value }}</td>
+                     {% if hostvars[host].ssl_version_check.query_result[0][0].Value != '' %}
+                     <td style="text-align: center; vertical-align: middle;">&#9989;</td>
+                     {% else %}
+                     <td style="text-align: center; vertical-align: middle;">&#10060;</td>
+                     {% endif %}
+                     </tr>
+                     <!--MariaDB Server DB User SSL Cipher Info-->
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td></td>
+                     <td></td>
+                     <td style="text-align: left;">MariaDB User SSL Cipher</td>
+                     <td style="text-align: left;">{{ hostvars[host].ssl_cipher_check.query_result[0][0].Value }}</td>
+                     {% if hostvars[host].ssl_cipher_check.query_result[0][0].Value != '' %}
+                     <td style="text-align: center; vertical-align: middle;">&#9989;</td>
+                     {% else %}
+                     <td style="text-align: center; vertical-align: middle;">&#10060;</td>
+                     {% endif %}
+                     </tr>
+
+                     <!--Apache Hosts Values-->                     
+                     {% elif host in apache_host %}
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td style="text-align: left;"><strong>Apache Host</strong></td>
+                     <td></td>
+                     <td style="text-align: left;"><strong>Check</strong></td>
+                     <td style="text-align: left;"><strong>Configured</strong></td>
+                     <td style="text-align: center;"><strong>Compliant</strong></td>
+                     </tr>
+                     <!--Apache HTTP Redirect-->
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td></td>
+                     <td></td>
+                     <td style="text-align: left;">HTTP Redirect to HTTPS</td>
+                     <td style="text-align: left;">{{ hostvars[host].http_stat.redirected }}</td>
+                     {% if hostvars[host].http_stat.redirected %}
+                     <td style="text-align: center; vertical-align: middle;">&#9989;</td>
+                     {% else %}
+                     <td style="text-align: center; vertical-align: middle;">&#10060;</td>
+                     {% endif %}
+                     </tr>
+                     <!--Apache Server Info-->
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td></td>
+                     <td></td>
+                     <td style="text-align: left;">Apache Server Info</td>
+                     <td style="text-align: left;">{{ hostvars[host].https_stat.server }}</td>
+                     {% if 'OpenSSL' in hostvars[host].https_stat.server %}
+                     <td style="text-align: center; vertical-align: middle;">&#9989;</td>
+                     {% else %}
+                     <td style="text-align: center; vertical-align: middle;">&#10060;</td>
+                     {% endif %}
+                     </tr>
+                     <!--Apache HTTP Return status-->
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td></td>
+                     <td></td>
+                     <td style="text-align: left;">Http Return Status</td>
+                     <td style="text-align: left;">{{ hostvars[host].http_stat.status }}</td>
+                     {% if hostvars[host].http_stat.status == 200 %}
+                     <td style="text-align: center; vertical-align: middle;">&#9989;</td>
+                     {% else %}
+                     <td style="text-align: center; vertical-align: middle;">&#10060;</td>
+                     {% endif %}
+                     </tr>
+                     <!--Apache HTTPS Return status-->
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td></td>
+                     <td></td>
+                     <td style="text-align: left;">Https Return Status</td>
+                     <td style="text-align: left;">{{ hostvars[host].https_stat.status }}</td>
+                     {% if hostvars[host].https_stat.status == 200 %}
+                     <td style="text-align: center; vertical-align: middle;">&#9989;</td>
+                     {% else %}
+                     <td style="text-align: center; vertical-align: middle;">&#10060;</td>
+                     {% endif %}
+                     </tr>
+                     {% endif %}
+                     {% endif %}
+                     {% endfor %}
+                  </tbody>
+               </table>
+            </div>
+            <br>
+            
+            <center><a href="https://ansible.com"> <img src="https://www.ansible.com/hubfs/Logo-Red_Hat-Ansible_Automation_Platform-A-Standard.svg" width="200px" title="Red Hat Ansible Automation Platform" alt="Red Hat Ansible Automation Platform"/></a></center>
+         </section>
+      </div>
+   </body>
+</html>

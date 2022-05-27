@@ -1,0 +1,189 @@
+---
+- name: Gather infomation from MariaDB hosts
+  hosts: "{{ mariadb_host }}"
+  gather_facts: False
+  vars_files: vars/ssl-vars.yml
+  become: True
+  tasks:
+  - name: Check if a CA cert is still valid
+    community.crypto.x509_certificate_info:
+      path: "{{ mariadb_certs_path }}/{{ mariadb_ca_cert_name }}"
+    register: ca_cert_valid
+
+  - name: Check if a MariaDB Server cert is still valid
+    community.crypto.x509_certificate_info:
+      path: "{{ mariadb_certs_path }}/{{ mariadb_server_cert_name }}"
+    register: server_cert_valid
+
+  - name: Check if a CA cert is still valid
+    ansible.builtin.command: openssl verify -CAfile {{ mariadb_ca_cert_name }} {{ mariadb_server_cert_name }}
+    args:
+      chdir: "{{ mariadb_certs_path }}"
+    register: openssl_verify_result
+    changed_when: False
+  
+  - name: Check for MariaDB Bind Address
+    ansible.builtin.lineinfile:
+      path: "{{ mariadb_config_file }}"
+      regexp: '^bind-address='
+      line: 'bind-address=0.0.0.0'
+    check_mode: True
+    register: mariadb_cfg_bind_address  
+
+  - name: Check for MariaDB Port
+    ansible.builtin.lineinfile:
+      path: "{{ mariadb_config_file }}"
+      regexp: '^port='
+      line: 'port=3389'
+    check_mode: True
+    register: mariadb_cfg_listen_port  
+
+  - name: Check for MariaDB CA Config
+    ansible.builtin.lineinfile:
+      path: "{{ mariadb_config_file }}"
+      regexp: '^ssl-ca='
+      line: ssl-ca={{ mariadb_certs_path }}/{{ mariadb_ca_cert_name }}
+    check_mode: True
+    register: mariadb_cfg_ca_cert  
+
+  - name: Check for MariaDB Server Key Config
+    ansible.builtin.lineinfile:
+      path: "{{ mariadb_config_file }}"
+      regexp: '^ssl-key='
+      line: ssl-key={{ mariadb_certs_path }}/{{ mariadb_server_key_name }}
+    check_mode: True
+    register: mariadb_cfg_server_key 
+
+  - name: Check for MariaDB Server Cert Config
+    ansible.builtin.lineinfile:
+      path: "{{ mariadb_config_file }}"
+      regexp: '^ssl-cert='
+      line: ssl-cert={{ mariadb_certs_path }}/{{ mariadb_server_cert_name }}
+    check_mode: True
+    register: mariadb_cfg_server_cert 
+
+  - name: Read the generated password
+    ansible.builtin.slurp:
+      src: "{{ mysql_db_password_file }}"
+    register: mysql_password
+
+  - name: Setting host facts for the mysql password
+    ansible.builtin.set_fact:
+      webapp_password: "{{ mysql_password['content'] | b64decode | trim }}"
+
+  - name: DB User requiring SSL
+    community.mysql.mysql_user:
+      login_host: localhost
+      login_port: "{{ mariadb_port }}"
+      login_user: root
+      login_password: "{{ webapp_password }}"
+      name: "{{ mariadb_username }}"
+      host: '%'
+      password: "{{ webapp_password }}"
+      priv: '*.*:ALL'
+      tls_requires:
+        ssl:
+      state: present
+    check_mode: True
+    register: dbuser_requires_ssl
+
+
+  - name: Check SSL version 
+    community.mysql.mysql_query:
+      login_host: "{{ mariadb_host }}.example.com"
+      login_port: 3389
+      login_user: webapp
+      login_password: "{{ webapp_password }}"
+      login_db: webapp_db
+      ca_cert: "{{ mariadb_certs_path }}/{{ mariadb_ca_cert_name }}"
+      query:
+      - SHOW SESSION STATUS WHERE Variable_name IN ('Ssl_version');
+      single_transaction: yes
+    register: ssl_version_check
+
+  - name: Check SSL Cipher 
+    community.mysql.mysql_query:
+      login_host: "{{ mariadb_host }}.example.com"
+      login_port: 3389
+      login_user: webapp
+      login_password: "{{ webapp_password }}"
+      login_db: webapp_db
+      ca_cert: "{{ mariadb_certs_path }}/{{ mariadb_ca_cert_name }}"
+      query:
+      - SHOW SESSION STATUS WHERE Variable_name IN ('Ssl_cipher');
+      single_transaction: yes
+    register: ssl_cipher_check
+
+  - name: Setting Facts for collected information
+    ansible.builtin.set_fact:
+      openssl_verify_result: "{{ openssl_verify_result }}"
+      ca_cert_valid: "{{ ca_cert_valid }}"
+      server_cert_valid: "{{ server_cert_valid }}"
+      mariadb_cfg_bind_address: "{{ mariadb_cfg_bind_address }}"
+      mariadb_cfg_listen_port: "{{ mariadb_cfg_listen_port }}"
+      mariadb_cfg_ca_cert: "{{ mariadb_cfg_ca_cert }}"
+      mariadb_cfg_server_key: "{{ mariadb_cfg_server_key }}"
+      mariadb_cfg_server_cert: "{{ mariadb_cfg_server_cert }}"
+      dbuser_requires_ssl: "{{ dbuser_requires_ssl }}"
+      ssl_version_check: "{{ ssl_version_check }}"
+      ssl_cipher_check: "{{ ssl_cipher_check }}"
+
+
+    # - debug:
+    #     msg: 
+    #     - "output of verify the cert is {{ openssl_verify_result.stdout }}"
+    #     - "The CA Cert common Name is {{ ca_cert_valid.subject.commonName }}"
+    #     - "The CA Cert Expiry status is {{ ca_cert_valid.expired }}"
+    #     - "The Server Cert common Name is {{ server_cert_valid.subject.commonName }}"
+    #     - "The Server Cert Expiry status is {{ server_cert_valid.expired }}"
+    #     - "Change required for Maria Bind Address: {{ mariadb_cfg_bind_address.changed }}"
+    #     - "Change required for Maria Port: {{ mariadb_cfg_listen_port.changed }}"
+    #     - "Change required for CA Cert Configuarion: {{ mariadb_cfg_ca_cert.changed }}"
+    #     - "Change required for Server key Configuarion: {{ mariadb_cfg_server_key.changed }}"
+    #     - "Change required for Server Cert Configuarion: {{ mariadb_cfg_server_cert.changed }}"
+    #     - "Database user requiring SSL Needs changing: {{ dbuser_requires_ssl.changed }}"
+    #     - "{{ ssl_version_check.query_result[0][0].Value }}"
+    #     - "{{ ssl_cipher_check.query_result[0][0].Value }}"
+
+- name: Gather infomation from MariaDB hosts
+  hosts: "{{ apache_host }}"
+  gather_facts: False
+  vars_files: vars/ssl-vars.yml
+  become: True
+  tasks:    
+  - name: Check that you can connect (GET) to a page and it returns a status 200
+    ansible.builtin.uri:
+      url: http://{{ ansible_host }} 
+      validate_certs: False
+    register: http_stat
+      
+  - name: Check that you can connect (GET) to a page and it returns a status 200
+    ansible.builtin.uri:
+      url: https://{{ ansible_host }} 
+      validate_certs: False
+    register: https_stat
+    
+  - name: Setting Facts for collected information
+    ansible.builtin.set_fact:
+      http_stat: "{{ http_stat }}"
+      https_stat: "{{ https_stat }}"
+  # - debug:
+  #     msg: 
+  #     - "HTTP redirected to HTTPS? {{ http_stat.redirected }}"
+  #     - "Server: {{ https_stat.server }}"
+  #     - "HTTP return status: {{ http_stat.status }}"
+  #     - "HTTPS return status: {{ https_stat.status }}"
+
+- name: Gather infomation from MariaDB hosts
+  hosts: all
+  gather_facts: True
+  vars_files: vars/ssl-vars.yml
+  become: True
+  tasks:
+  - name: Deploy the report html template
+    ansible.builtin.template:
+      src: report.html.j2
+      dest: /var/www/html/report.html
+    delegate_to: "{{ item }}"
+    loop: "{{ apache_host }}"
+    run_once: True

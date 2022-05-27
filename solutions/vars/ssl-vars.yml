@@ -1,12 +1,14 @@
 ---
 #Apache Variables
-apache_host: node1
+apache_host: 
+- node1
+- node2
 apache_config_file: /etc/httpd/conf.d/ssl.conf
 apache_host_docroot: /var/www/html
 apache_certs_path: /var/webapp
 
 #MariaDB Variables
-mariadb_host: node2
+mariadb_host: node3
 mariadb_port: 3389
 mariadb_system_user: mysql
 mariadb_system_group: mysql
