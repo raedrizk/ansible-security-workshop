@@ -17,16 +17,14 @@
     name: "{{ mariadb_username }}"
     state: absent
 
-- name: Create the Application DB User to only connect from one host
+- name: Create the Application DB User to Not require SSL
   community.mysql.mysql_user:
     login_host: localhost
     login_port: "{{ mariadb_port }}"
     login_user: root
     login_password: "{{ webapp_password }}"
     name: "{{ mariadb_username }}"
-    host: "{{ apache_host[0] }}.example.com"
+    host: "%"
     password: "{{ webapp_password }}"
     priv: '*.*:ALL'
-    tls_requires:
-        ssl:
     state: present
