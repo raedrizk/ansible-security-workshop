@@ -1,0 +1,21 @@
+---
+- name: Read the generated password
+  ansible.builtin.slurp:
+    src: "{{ password_file }}"
+  register: mysql_password
+
+- name: Setting host facts using complex arguments
+  ansible.builtin.set_fact:
+    webapp_password: "{{ mysql_password['content'] | b64decode | trim }}"
+
+- name: modify the application DB user
+  community.mysql.mysql_user:
+    login_host: localhost
+    login_port: 3389
+    login_user: root
+    login_password: "{{ webapp_password }}"
+    name: 'webapp'
+    host: "{{ apache_host[0] }}.example.com"
+    password: "{{ webapp_password }}"
+    priv: '*.*:ALL'
+    state: present

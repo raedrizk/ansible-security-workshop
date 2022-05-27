@@ -1,0 +1,7 @@
+---
+- name: Modify MariaDB User
+  hosts: "{{ mariadb_host }}"
+  become: True
+  vars_files: vars/lab-setup.yml
+  roles:
+  - modify-mariadb-host
