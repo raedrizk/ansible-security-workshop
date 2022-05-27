@@ -1,4 +1,3 @@
----
 - name: Gather infomation from MariaDB hosts
   hosts: "{{ mariadb_host }}"
   gather_facts: False
@@ -87,7 +86,6 @@
     check_mode: True
     register: dbuser_requires_ssl
 
-
   - name: Check SSL version 
     community.mysql.mysql_query:
       login_host: "{{ mariadb_host }}.example.com"
@@ -128,24 +126,7 @@
       ssl_version_check: "{{ ssl_version_check }}"
       ssl_cipher_check: "{{ ssl_cipher_check }}"
 
-
-    # - debug:
-    #     msg: 
-    #     - "output of verify the cert is {{ openssl_verify_result.stdout }}"
-    #     - "The CA Cert common Name is {{ ca_cert_valid.subject.commonName }}"
-    #     - "The CA Cert Expiry status is {{ ca_cert_valid.expired }}"
-    #     - "The Server Cert common Name is {{ server_cert_valid.subject.commonName }}"
-    #     - "The Server Cert Expiry status is {{ server_cert_valid.expired }}"
-    #     - "Change required for Maria Bind Address: {{ mariadb_cfg_bind_address.changed }}"
-    #     - "Change required for Maria Port: {{ mariadb_cfg_listen_port.changed }}"
-    #     - "Change required for CA Cert Configuarion: {{ mariadb_cfg_ca_cert.changed }}"
-    #     - "Change required for Server key Configuarion: {{ mariadb_cfg_server_key.changed }}"
-    #     - "Change required for Server Cert Configuarion: {{ mariadb_cfg_server_cert.changed }}"
-    #     - "Database user requiring SSL Needs changing: {{ dbuser_requires_ssl.changed }}"
-    #     - "{{ ssl_version_check.query_result[0][0].Value }}"
-    #     - "{{ ssl_cipher_check.query_result[0][0].Value }}"
-
-- name: Gather infomation from MariaDB hosts
+- name: Gather infomation from Apache hosts
   hosts: "{{ apache_host }}"
   gather_facts: False
   vars_files: vars/ssl-vars.yml
@@ -167,14 +148,8 @@
     ansible.builtin.set_fact:
       http_stat: "{{ http_stat }}"
       https_stat: "{{ https_stat }}"
-  # - debug:
-  #     msg: 
-  #     - "HTTP redirected to HTTPS? {{ http_stat.redirected }}"
-  #     - "Server: {{ https_stat.server }}"
-  #     - "HTTP return status: {{ http_stat.status }}"
-  #     - "HTTPS return status: {{ https_stat.status }}"
 
-- name: Gather infomation from MariaDB hosts
+- name: Generate and Deploy the Report
   hosts: all
   gather_facts: True
   vars_files: vars/ssl-vars.yml

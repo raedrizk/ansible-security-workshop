@@ -21,6 +21,3 @@ mariadb_ca_key_name: ca-key.pem
 mariadb_ca_cert_name: ca-cert.pem
 mariadb_server_key_name: server-key.pem
 mariadb_server_cert_name: server-cert.pem
-
-#Reporting variables
-reporting_host: node3

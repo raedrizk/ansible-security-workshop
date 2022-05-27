@@ -77,7 +77,7 @@
       block: |
         #BIND ADDRESS AND PORT
         bind-address=0.0.0.0
-        port=3389
+        port={{ mariadb_port }}
         #SSL CONFIG
         ssl-ca={{ mariadb_certs_path }}/{{ mariadb_ca_cert_name }}
         ssl-cert={{ mariadb_certs_path }}/{{ mariadb_server_cert_name }}
@@ -142,6 +142,12 @@
       src: templates/dbvars.php.j2
       dest: "{{ apache_host_docroot }}/dbvars.php"
 
+  - name: Install mod_ssl 
+    ansible.builtin.dnf:
+      name: mod_ssl
+      state: latest
+    notify: restart apache
+
   - name: Create directory to hold Apache key and cert
     ansible.builtin.file:
       path: "{{ apache_certs_path }}"
@@ -168,12 +174,6 @@
    
   - name: Apply new SELinux file context to filesystem
     ansible.builtin.command: restorecon -irv "{{ apache_certs_path }}/"
-
-  - name: Install mod_ssl 
-    ansible.builtin.dnf:
-      name: mod_ssl
-      state: latest
-    notify: restart apache
 
   - name: edit the ssl configuration file to point to the generated certificate
     ansible.builtin.lineinfile:
