@@ -1,0 +1,2 @@
+---
+apache_config_file: /etc/httpd/conf.d/ssl.conf
