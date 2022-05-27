@@ -1,0 +1,13 @@
+---
+- name: disable http redirect
+  ansible.builtin.blockinfile:
+    path: "{{ apache_config_file }}"
+    insertafter: "## SSL Virtual Host Context"
+    block: |
+      <VirtualHost *:80>
+      RewriteEngine On
+      RewriteCond %{HTTPS} off
+      RewriteRule (.*) https://%{SERVER_NAME}
+      </VirtualHost>
+    state: absent
+  notify: restart apache

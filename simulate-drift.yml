@@ -1,7 +1,16 @@
 ---
 - name: Modify MariaDB User
   hosts: "{{ mariadb_host }}"
+  gather_facts: False
   become: True
   vars_files: vars/lab-setup.yml
   roles:
   - modify-mariadb-host
+
+- name: Disable HTTP Redirect
+  hosts: "{{ apache_host }}"
+  gather_facts: False
+  become: True
+  vars_files: vars/lab-setup.yml
+  roles:
+  - disable-http-redirect
