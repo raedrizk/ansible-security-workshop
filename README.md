@@ -47,13 +47,13 @@ For this workshop, we chose a LAMP stack as our target for security policies, ho
 
 The lab environemnt described above will need to be configured before going through the exercises in this workshop, and to do so a playbook has been written to do the following:
 * Stop `firewalld` and install, start and enable `auditd` on all the RHEL hosts.
-* Install and configure `MariaDB` on `node2` (by default) to act as the backend for our sample webapp. 
+* Install and configure `MariaDB` on `node3` (by default) to act as the backend for our sample webapp. 
     * A sample database `webapp_db` will be created, and populated with a simple table containing information on the name and version of our application. 
     * a user `webapp` that can connect to the database from any host and does not require an encrypted connection.
     * Database will not initially be configured to use SSL
     * Databse will be configured to use a non default port , 3389
     * Database will be configured to listen for connections from All hosts
-* Install and configure `Apache` and `PHP` on `node1` (by default) to act as our webserver.
+* Install and configure `Apache` and `PHP` on `node1` and `node2` (by default) to act as our webservers.
     * A simple php page will be deployed to the docroot that connects to the `MariaDB` server and display the name and version of the application
     * The php page will also display information on the status of the database session with regards to the `SSL Cipher` and `SSL Version` if and only if the connection uses SSL.
     * The server listens on port 80 (http), and does not listen on 443 (https).
@@ -120,13 +120,17 @@ The initial configuration for the workshop is now complete.
 ## Step 3 - Validate the setup
 
 The lab environemnt should now be setup as descibed earlier with MariaDB and Apache running. In order to validate, we can visit the web server to see the application that was deployed. Click **Inventories**
-on the left panel, and then click the name of our Inventory **Workshop Inventory**. Now that you are on the Inventory Details page, we will need to go select our Host. So click **HOSTS**, and click on **node1** since that is the webserver node (by default) and inspect the node's IP address under the `variables` section. 
+on the left panel, and then click the name of our Inventory **Workshop Inventory**. Now that you are on the Inventory Details page, we will need to go select our Host. So click **HOSTS**, and click on **node1** since that is one of the webserver nodes (by default) and inspect the node's IP address under the `variables` section. 
 
 ![Inevntory Node](images/inventory-node-1.png)
 
 > **Tip**
 >
 > The IP Address in your inventory will be different than the one in the screenshot above. Make sure you use the address specific to your lab environemnt.
+
+> **Tip**
+>
+> You can use either one of the webserver nodes `node1` or `node2` to view the appication, or in upcoming exercises. The instructions will always refer to `node1` for simplicity, but feel free to check `node2` or both!
 
 
 Copy that IP address and launch a new browser windows or tab and put in `http://<NODE1's_IP_ADDRESS_YOU_JUST_COPIED>` and look at the webpage:
@@ -233,13 +237,15 @@ In your project directory, also create a folder named `vars` and in that folder 
 ```yaml
 ---
 #Apache Variables
-apache_host: node1
+apache_host: 
+- node1
+- node2
 apache_config_file: /etc/httpd/conf.d/ssl.conf
 apache_host_docroot: /var/www/html
 apache_certs_path: /var/webapp
 
 #MariaDB Variables
-mariadb_host: node2
+mariadb_host: node3
 mariadb_port: 3389
 mariadb_system_user: mysql
 mariadb_system_group: mysql
@@ -252,9 +258,6 @@ mariadb_ca_key_name: ca-key.pem
 mariadb_ca_cert_name: ca-cert.pem
 mariadb_server_key_name: server-key.pem
 mariadb_server_cert_name: server-cert.pem
-
-#Reporting variables
-reporting_host: node3
 ```
 
 
@@ -363,7 +366,7 @@ Next we will configure MariaDB to point  to the new certificates that we just ge
       block: |
         #BIND ADDRESS AND PORT
         bind-address=0.0.0.0
-        port=3389
+        port={{ mariadb_port }}
         #SSL CONFIG
         ssl-ca={{ mariadb_certs_path }}/{{ mariadb_ca_cert_name }}
         ssl-cert={{ mariadb_certs_path }}/{{ mariadb_server_cert_name }}
@@ -631,7 +634,7 @@ So the full playbook looks like this:
       block: |
         #BIND ADDRESS AND PORT
         bind-address=0.0.0.0
-        port=3389
+        port={{ mariadb_port }}
         #SSL CONFIG
         ssl-ca={{ mariadb_certs_path }}/{{ mariadb_ca_cert_name }}
         ssl-cert={{ mariadb_certs_path }}/{{ mariadb_server_cert_name }}
@@ -1230,6 +1233,12 @@ The Final play book will look like this:
       src: templates/dbvars.php.j2
       dest: "{{ apache_host_docroot }}/dbvars.php"
 
+  - name: Install mod_ssl 
+    ansible.builtin.dnf:
+      name: mod_ssl
+      state: latest
+    notify: restart apache
+
   - name: Create directory to hold Apache key and cert
     ansible.builtin.file:
       path: "{{ apache_certs_path }}"
@@ -1256,12 +1265,6 @@ The Final play book will look like this:
    
   - name: Apply new SELinux file context to filesystem
     ansible.builtin.command: restorecon -irv "{{ apache_certs_path }}/"
-
-  - name: Install mod_ssl 
-    ansible.builtin.dnf:
-      name: mod_ssl
-      state: latest
-    notify: restart apache
 
   - name: edit the ssl configuration file to point to the generated certificate
     ansible.builtin.lineinfile:
@@ -1326,10 +1329,783 @@ One of the ways relies on the idempotency of Ansible Playbooks (if idempotent mo
 
 Another way is relying on Jinja2 templates to generate a custom report that can be emailed, stored in a certain location, deployed as a webpage or many other ways to show the state of the systems with respect to our required configurations. This is the approach we will explore in this workshop.
 
+## Step 1 - Generating a compliance report: writing the playbook
 
+To monitor the state of our security configuration, we will write a playbook that will collect information from all of our nodes that relates to our security requirements, and generate a report to show the compliance state. The playbook will collect information on the MariaDB SSL configuration, The Apache SSL configuration, the status of the HTTP redirect and other relevant information. And since we already (handily) have Apache deployed on a couple of nodes, we will use the same nodes to display an HTML report with that information.
+
+Going back to our Project, create a new file in the root of the project called `generate-status-report.yml`. Your directory structure should look like this:
+
+```
+.
+├── collections
+│   └── requirements.yml
+├── generate-status-report.yml
+├── setup-ssl.yml
+├── templates
+│   ├── dbvars.php.j2
+└── vars
+    └── ssl-vars.yml
+```
+
+In the `generate-status-report.yml` playbook, place the following code:
+
+```yaml
+---
+- name: Gather infomation from MariaDB hosts
+  hosts: "{{ mariadb_host }}"
+  gather_facts: False
+  vars_files: vars/ssl-vars.yml
+  become: True
+  tasks:
+  - name: Check if a CA cert is still valid
+    community.crypto.x509_certificate_info:
+      path: "{{ mariadb_certs_path }}/{{ mariadb_ca_cert_name }}"
+    register: ca_cert_valid
+
+  - name: Check if a MariaDB Server cert is still valid
+    community.crypto.x509_certificate_info:
+      path: "{{ mariadb_certs_path }}/{{ mariadb_server_cert_name }}"
+    register: server_cert_valid
+
+  - name: Check if a CA cert is still valid
+    ansible.builtin.command: openssl verify -CAfile {{ mariadb_ca_cert_name }} {{ mariadb_server_cert_name }}
+    args:
+      chdir: "{{ mariadb_certs_path }}"
+    register: openssl_verify_result
+    changed_when: False
+  
+  - name: Check for MariaDB Bind Address
+    ansible.builtin.lineinfile:
+      path: "{{ mariadb_config_file }}"
+      regexp: '^bind-address='
+      line: 'bind-address=0.0.0.0'
+    check_mode: True
+    register: mariadb_cfg_bind_address  
+
+  - name: Check for MariaDB Port
+    ansible.builtin.lineinfile:
+      path: "{{ mariadb_config_file }}"
+      regexp: '^port='
+      line: 'port=3389'
+    check_mode: True
+    register: mariadb_cfg_listen_port  
+
+  - name: Check for MariaDB CA Config
+    ansible.builtin.lineinfile:
+      path: "{{ mariadb_config_file }}"
+      regexp: '^ssl-ca='
+      line: ssl-ca={{ mariadb_certs_path }}/{{ mariadb_ca_cert_name }}
+    check_mode: True
+    register: mariadb_cfg_ca_cert  
+
+  - name: Check for MariaDB Server Key Config
+    ansible.builtin.lineinfile:
+      path: "{{ mariadb_config_file }}"
+      regexp: '^ssl-key='
+      line: ssl-key={{ mariadb_certs_path }}/{{ mariadb_server_key_name }}
+    check_mode: True
+    register: mariadb_cfg_server_key 
+
+  - name: Check for MariaDB Server Cert Config
+    ansible.builtin.lineinfile:
+      path: "{{ mariadb_config_file }}"
+      regexp: '^ssl-cert='
+      line: ssl-cert={{ mariadb_certs_path }}/{{ mariadb_server_cert_name }}
+    check_mode: True
+    register: mariadb_cfg_server_cert 
+
+  - name: Read the generated password
+    ansible.builtin.slurp:
+      src: "{{ mysql_db_password_file }}"
+    register: mysql_password
+
+  - name: Setting host facts for the mysql password
+    ansible.builtin.set_fact:
+      webapp_password: "{{ mysql_password['content'] | b64decode | trim }}"
+
+  - name: DB User requiring SSL
+    community.mysql.mysql_user:
+      login_host: localhost
+      login_port: "{{ mariadb_port }}"
+      login_user: root
+      login_password: "{{ webapp_password }}"
+      name: "{{ mariadb_username }}"
+      host: '%'
+      password: "{{ webapp_password }}"
+      priv: '*.*:ALL'
+      tls_requires:
+        ssl:
+      state: present
+    check_mode: True
+    register: dbuser_requires_ssl
+
+  - name: Check SSL version 
+    community.mysql.mysql_query:
+      login_host: "{{ mariadb_host }}.example.com"
+      login_port: 3389
+      login_user: webapp
+      login_password: "{{ webapp_password }}"
+      login_db: webapp_db
+      ca_cert: "{{ mariadb_certs_path }}/{{ mariadb_ca_cert_name }}"
+      query:
+      - SHOW SESSION STATUS WHERE Variable_name IN ('Ssl_version');
+      single_transaction: yes
+    register: ssl_version_check
+
+  - name: Check SSL Cipher 
+    community.mysql.mysql_query:
+      login_host: "{{ mariadb_host }}.example.com"
+      login_port: 3389
+      login_user: webapp
+      login_password: "{{ webapp_password }}"
+      login_db: webapp_db
+      ca_cert: "{{ mariadb_certs_path }}/{{ mariadb_ca_cert_name }}"
+      query:
+      - SHOW SESSION STATUS WHERE Variable_name IN ('Ssl_cipher');
+      single_transaction: yes
+    register: ssl_cipher_check
+
+  - name: Setting Facts for collected information
+    ansible.builtin.set_fact:
+      openssl_verify_result: "{{ openssl_verify_result }}"
+      ca_cert_valid: "{{ ca_cert_valid }}"
+      server_cert_valid: "{{ server_cert_valid }}"
+      mariadb_cfg_bind_address: "{{ mariadb_cfg_bind_address }}"
+      mariadb_cfg_listen_port: "{{ mariadb_cfg_listen_port }}"
+      mariadb_cfg_ca_cert: "{{ mariadb_cfg_ca_cert }}"
+      mariadb_cfg_server_key: "{{ mariadb_cfg_server_key }}"
+      mariadb_cfg_server_cert: "{{ mariadb_cfg_server_cert }}"
+      dbuser_requires_ssl: "{{ dbuser_requires_ssl }}"
+      ssl_version_check: "{{ ssl_version_check }}"
+      ssl_cipher_check: "{{ ssl_cipher_check }}"
+
+- name: Gather infomation from Apache hosts
+  hosts: "{{ apache_host }}"
+  gather_facts: False
+  vars_files: vars/ssl-vars.yml
+  become: True
+  tasks:    
+  - name: Check that you can connect (GET) to a page and it returns a status 200
+    ansible.builtin.uri:
+      url: http://{{ ansible_host }} 
+      validate_certs: False
+    register: http_stat
+      
+  - name: Check that you can connect (GET) to a page and it returns a status 200
+    ansible.builtin.uri:
+      url: https://{{ ansible_host }} 
+      validate_certs: False
+    register: https_stat
+    
+  - name: Setting Facts for collected information
+    ansible.builtin.set_fact:
+      http_stat: "{{ http_stat }}"
+      https_stat: "{{ https_stat }}"
+
+- name: Generate and Deploy the Report
+  hosts: all
+  gather_facts: True
+  vars_files: vars/ssl-vars.yml
+  become: True
+  tasks:
+  - name: Deploy the report html template
+    ansible.builtin.template:
+      src: report.html.j2
+      dest: /var/www/html/report.html
+    delegate_to: "{{ item }}"
+    loop: "{{ apache_host }}"
+    run_once: True
+```
+
+The playbook we just created has 3 plays:
+1. The first play `Gather infomation from MariaDB hosts` Runs on the MariaDB host, and collects information related to the MariaDB generated certificates and the application database user:
+  * we use the `x509_certificate_info` module from the `community.crypto` collection to gather informaion on the generated certificates.
+  *  we use the `ansible.builtin.command` module to issue the `openssl verify` command to validate the generated server certificate.
+  * we use the `ansible.builtin.lineinfile` to check for certain configurations in configuration files.
+  * we use the `mysql_user` module from the `community.mysql` collection to check the database user and the requirement to use encrypted connections.
+  * we use the `mysql_query` module from the `community.mysql` collection to run a query with the database user and certificate to check the SSL Version and SSL Cipher.
+  * Finally we set host facts wit the collected information.
+2. The second play `Gather infomation from Apache hosts` Runs on the Apache hosts, and collects information related to the SSL configuraion for Apache, as well as the HTTP to HTTPS redirect:
+   * we use the `ansible.builtin.uri` module to check the status of the HTTP and HTTP requests, and that the redircet is setup correctly on the Apache nodes.
+    * Finally we set host facts wit the collected information.
+3. The final play `Generate and Deploy the Report` runs on all the hosts, and gathers Facts from all hosts, and generates the report using the `ansible.builtin.template` module and a template file we will create next, and deploys that report to the Apache hosts so that we may access that report as a webpage.
+
+we then need to create the template file that will be used to generate the report. In the `templates` directory, create a file names `report.html.j2`. The project directory structure should now look like this:
+
+```
+.
+├── collections
+│   └── requirements.yml
+├── generate-status-report.yml
+├── setup-ssl.yml
+├── templates
+│   ├── dbvars.php.j2
+│   └── report.html.j2
+└── vars
+    └── ssl-vars.yml
+```
+In the `report.html.j2` file place the following content:
+
+```html
+<html lang="en">
+   <head>
+      <meta charset="utf-8">
+      <title>Application/Database Compliance Check Report</title>
+      <style>
+         p.hostname {
+         color: #000000;
+         font-weight: bolder;
+         font-size: large;
+         margin: auto;
+         width: 50%;
+         }
+         #subtable {
+         background: #ebebeb;
+         margin: 0px;
+         width: 100%;
+         }
+         #subtable tbody tr td {
+         padding: 5px 5px 5px 5px;
+         }
+         #subtable thead th {
+         padding: 5px;
+         }
+         * {
+         -moz-box-sizing: border-box;
+         -webkit-box-sizing: border-box;
+         box-sizing: border-box;
+         font-family: "Open Sans", "Helvetica";
+         }
+         a {
+         color: #ffffff;
+         }
+         p {
+         color: #ffffff;
+         }
+         h1 {
+         text-align: center;
+         color: #ffffff;
+         }
+         body {
+         background:#999999;
+         padding: 0px;
+         margin: 0px;
+         font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+         }
+         table {
+         border-collapse: separate;
+         background:#fff;
+         @include border-radius(5px);
+         @include box-shadow(0px 0px 5px rgba(0,0,0,0.3));
+         }
+         .main_net_table {
+         margin:50px auto;
+         }
+         .main_net_table {
+         margin:50px auto;
+         }
+         thead {
+         @include border-radius(5px);
+         }
+         thead th {
+         font-size:16px;
+         font-weight:400;
+         color:#fff;
+         @include text-shadow(1px 1px 0px rgba(0,0,0,0.5));
+         text-align:left;
+         padding:20px;
+         border-top:1px solid #858d99;
+         background: #353a40;
+         &:first-child {
+         @include border-top-left-radius(5px);
+         }
+         &:last-child {
+         @include border-top-right-radius(5px);
+         }
+         }
+         tbody tr td {
+         font-weight:400;
+         color:#5f6062;
+         font-size:13px;
+         padding:20px 20px 20px 20px;
+         border-bottom:1px solid #e0e0e0;
+         }
+         tbody tr:nth-child(2n) {
+         background:#f0f3f5;
+         }
+         tbody tr:last-child td {
+         border-bottom:none;
+         &:first-child {
+         @include border-bottom-left-radius(5px);
+         }
+         &:last-child {
+         @include border-bottom-right-radius(5px);
+         }
+         }
+         td {
+         vertical-align: top;
+         }
+         span.highlight {
+         background-color: yellow;
+         }
+         .expandclass {
+         color: #5f6062;
+         }
+         .content{
+         display:none;
+         margin: 10px;
+         }
+         header {
+         width: 100%;
+         position: initial;
+         float: initial;
+         padding: 0;
+         margin: 0;
+         border-radius: 0;
+         height: 88px;
+         background-color: #171717;
+         align-items: center;
+         }
+         .header-container {
+         margin: 0 auto;
+         padding: 5px 0;
+         text-align: center;
+         width: 100%;
+         height: 100%;
+         }
+         .header-logo {
+         width: 137px;
+         border: 0;
+         margin: 0;
+         margin-left: 15px;
+         }
+         .header-link {
+         margin-left: 40px;
+         text-decoration: none;
+         cursor: pointer;
+         text-transform: uppercase;
+         font-size: 15px;
+         font-family: 'Red Hat Text';
+         font-weight: 500;
+         }
+         .header-link:hover {
+         text-shadow: 0 0 0.02px white;
+         text-decoration: none;
+         }
+         table.net_info td {
+         padding: 5px;
+         }
+         p.expandclass:hover {
+         text-decoration: underline;
+         color: #EE0000;
+         cursor: pointer;
+         }
+         .summary_info {
+         }
+         .ui-state-active, .ui-widget-content .ui-state-active, .ui-widget-header .ui-state-active, a.ui-button:active, .ui-button:active, .ui-button.ui-state-active:hover {
+         border: 1px solid #5F0000;
+         background: #EE0000;
+         }
+         div#net_content {
+         padding: 0px;
+         height: auto !important;
+         }
+         img.router_image {
+         vertical-align: middle;
+         padding: 0px 10px 10px 10px;
+         width: 50px;
+         }
+         table.net_info {
+         width: 100%;
+         }
+         p.internal_label {
+         color: #000000;
+         }
+      </style>
+      <link href='https://fonts.googleapis.com/css?family=Open+Sans' rel='stylesheet' type='text/css'>
+      <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>  
+      <script type="text/javascript">  
+         $(document).ready(function () {  
+                 $('tr.parent')  
+                     .css("cursor", "pointer")  
+                     .attr("title", "Click to expand/collapse")  
+                     .click(function () {  
+                         $(this).siblings('.child-' + this.id).toggle();  
+                     });  
+                 $('tr[@class^=child-]').hide().children('td');  
+         });  
+      </script>  
+   </head>
+   <body>
+      <div class="wrapper">
+         <header>
+            <div class="header-container">
+               <h1>Application/Database Compliance Check Report</h1>
+            </div>
+         </header>
+         <section>
+            <div id="accordion">
+               <table class="main_net_table" id="detail_table" style="width:70%">
+                  <thead>
+                     <tr>
+                        <th style="width:20%">Host</th>
+                        <th style="width:20%">FQDN </th>
+                        <th style="width:20%">OS</th>
+                        <th style="width:20%">OS Version</th>
+                        <th style="width:20%">kernel</th>
+                     </tr>
+                  </thead>
+                  <tbody>
+                     {% for host in play_hosts %}
+                     {% if hostvars[host].ansible_distribution is defined %}
+                     <tr class="parent" id="{{ host | replace(".", "") }}" title="Click to expand/collapse" style="cursor: pointer;"> 
+                     <td>{{ host }}</td>
+                     <td>{{ hostvars[host].ansible_fqdn }}</td>
+                     <td>{{ hostvars[host].ansible_distribution }}</td>
+                     <td>{{ hostvars[host].ansible_distribution_version }}</td>
+                     <td>{{ hostvars[host].ansible_kernel }}</td>
+                     </tr>
+                     <!--MariaDB Hosts Values-->                     
+                     {% if host in mariadb_host %}
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td style="text-align: left;"><strong>MariaDB Host</strong></td>
+                     <td></td>
+                     <td style="text-align: left;"><strong>Check</strong></td>
+                     <td style="text-align: left;"><strong>Configured</strong></td>
+                     <td style="text-align: center;"><strong>Compliant</strong></td>
+                     </tr>
+                     <!--CA Cert Common Name-->
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td></td>
+                     <td></td>
+                     <td style="text-align: left;">CA Cert common Name</td>
+                     <td style="text-align: left;">{{ hostvars[host].ca_cert_valid.subject.commonName }}</td>
+                     {% if hostvars[host].ca_cert_valid.subject.commonName == host %}
+                     <td style="text-align: center; vertical-align: middle;">&#9989;</td>
+                     {% else %}
+                     <td style="text-align: center; vertical-align: middle;">&#10060;</td>
+                     {% endif %}
+                     </tr>
+                     <!--CA Cert Expiry status-->
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td></td>
+                     <td></td>
+                     <td style="text-align: left;">CA Cert Expired</td>
+                     <td style="text-align: left;">{{ hostvars[host].ca_cert_valid.expired }}</td>
+                     {% if not hostvars[host].ca_cert_valid.expired | bool %}
+                     <td style="text-align: center; vertical-align: middle;">&#9989;</td>
+                     {% else %}
+                     <td style="text-align: center; vertical-align: middle;">&#10060;</td>
+                     {% endif %}
+                     </tr>
+                     <!--Server Cert Common Name-->
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td></td>
+                     <td></td>
+                     <td style="text-align: left;">Server Cert common Name</td>
+                     <td style="text-align: left;">{{ hostvars[host].server_cert_valid.subject.commonName }}</td>
+                     {% set server_ca_name_compare = host + '.example.com'%}
+                     {% if hostvars[host].server_cert_valid.subject.commonName == server_ca_name_compare %}
+                     <td style="text-align: center; vertical-align: middle;">&#9989;</td>
+                     {% else %}
+                     <td style="text-align: center; vertical-align: middle;">&#10060;</td>
+                     {% endif %}
+                     </tr>
+                     <!--Server Cert Expiry status-->
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td></td>
+                     <td></td>
+                     <td style="text-align: left;">Server Cert Expired</td>
+                     <td style="text-align: left;">{{ hostvars[host].server_cert_valid.expired }}</td>
+                     {% if not hostvars[host].server_cert_valid.expired | bool %}
+                     <td style="text-align: center; vertical-align: middle;">&#9989;</td>
+                     {% else %}
+                     <td style="text-align: center; vertical-align: middle;">&#10060;</td>
+                     {% endif %}
+                     </tr>
+                     <!--Verify The Server Cert-->
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td></td>
+                     <td></td>
+                     <td style="text-align: left;">Server Cert Verify</td>
+                     <td style="text-align: left;">{{ hostvars[host].openssl_verify_result.stdout }}</td>
+                     {% if 'OK' in hostvars[host].openssl_verify_result.stdout %}
+                     <td style="text-align: center; vertical-align: middle;">&#9989;</td>
+                     {% else %}
+                     <td style="text-align: center; vertical-align: middle;">&#10060;</td>
+                     {% endif %}
+                     </tr>
+                     <!--MariaDB Bind Address-->
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td></td>
+                     <td></td>
+                     <td style="text-align: left;">MariaDB Bind Address</td>
+                     <td style="text-align: left;">{{ not hostvars[host].mariadb_cfg_bind_address.changed }}</td>
+                     {% if not hostvars[host].mariadb_cfg_bind_address.changed %}
+                     <td style="text-align: center; vertical-align: middle;">&#9989;</td>
+                     {% else %}
+                     <td style="text-align: center; vertical-align: middle;">&#10060;</td>
+                     {% endif %}
+                     </tr>
+                     <!--MariaDB Port-->
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td></td>
+                     <td></td>
+                     <td style="text-align: left;">MariaDB Port</td>
+                     <td style="text-align: left;">{{ not hostvars[host].mariadb_cfg_listen_port.changed }}</td>
+                     {% if not hostvars[host].mariadb_cfg_listen_port.changed %}
+                     <td style="text-align: center; vertical-align: middle;">&#9989;</td>
+                     {% else %}
+                     <td style="text-align: center; vertical-align: middle;">&#10060;</td>
+                     {% endif %}
+                     </tr>
+                     <!--MariaDB CA Cert Configuration-->
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td></td>
+                     <td></td>
+                     <td style="text-align: left;">MariaDB CA Cert Configuration</td>
+                     <td style="text-align: left;">{{ not hostvars[host].mariadb_cfg_ca_cert.changed }}</td>
+                     {% if not hostvars[host].mariadb_cfg_ca_cert.changed %}
+                     <td style="text-align: center; vertical-align: middle;">&#9989;</td>
+                     {% else %}
+                     <td style="text-align: center; vertical-align: middle;">&#10060;</td>
+                     {% endif %}
+                     </tr>
+                     <!--MariaDB Server Key Configuration-->
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td></td>
+                     <td></td>
+                     <td style="text-align: left;">MariaDB Server Key Configuration</td>
+                     <td style="text-align: left;">{{ not hostvars[host].mariadb_cfg_server_key.changed }}</td>
+                     {% if not hostvars[host].mariadb_cfg_server_key.changed %}
+                     <td style="text-align: center; vertical-align: middle;">&#9989;</td>
+                     {% else %}
+                     <td style="text-align: center; vertical-align: middle;">&#10060;</td>
+                     {% endif %}
+                     </tr>
+                     <!--MariaDB Server Cert Configuration-->
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td></td>
+                     <td></td>
+                     <td style="text-align: left;">MariaDB Server Cert Configuration</td>
+                     <td style="text-align: left;">{{ not hostvars[host].mariadb_cfg_server_cert.changed }}</td>
+                     {% if not hostvars[host].mariadb_cfg_server_cert.changed %}
+                     <td style="text-align: center; vertical-align: middle;">&#9989;</td>
+                     {% else %}
+                     <td style="text-align: center; vertical-align: middle;">&#10060;</td>
+                     {% endif %}
+                     </tr>
+                     <!--MariaDB Server DB User SSL Configuration-->
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td></td>
+                     <td></td>
+                     <td style="text-align: left;">MariaDB User SSL Configuration</td>
+                     <td style="text-align: left;">{{ not hostvars[host].dbuser_requires_ssl.changed }}</td>
+                     {% if not hostvars[host].dbuser_requires_ssl.changed %}
+                     <td style="text-align: center; vertical-align: middle;">&#9989;</td>
+                     {% else %}
+                     <td style="text-align: center; vertical-align: middle;">&#10060;</td>
+                     {% endif %}
+                     </tr>
+                     <!--MariaDB Server DB User SSL Version Info-->
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td></td>
+                     <td></td>
+                     <td style="text-align: left;">MariaDB User SSL Version</td>
+                     <td style="text-align: left;">{{ hostvars[host].ssl_version_check.query_result[0][0].Value }}</td>
+                     {% if hostvars[host].ssl_version_check.query_result[0][0].Value != '' %}
+                     <td style="text-align: center; vertical-align: middle;">&#9989;</td>
+                     {% else %}
+                     <td style="text-align: center; vertical-align: middle;">&#10060;</td>
+                     {% endif %}
+                     </tr>
+                     <!--MariaDB Server DB User SSL Cipher Info-->
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td></td>
+                     <td></td>
+                     <td style="text-align: left;">MariaDB User SSL Cipher</td>
+                     <td style="text-align: left;">{{ hostvars[host].ssl_cipher_check.query_result[0][0].Value }}</td>
+                     {% if hostvars[host].ssl_cipher_check.query_result[0][0].Value != '' %}
+                     <td style="text-align: center; vertical-align: middle;">&#9989;</td>
+                     {% else %}
+                     <td style="text-align: center; vertical-align: middle;">&#10060;</td>
+                     {% endif %}
+                     </tr>
+
+                     <!--Apache Hosts Values-->                     
+                     {% elif host in apache_host %}
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td style="text-align: left;"><strong>Apache Host</strong></td>
+                     <td></td>
+                     <td style="text-align: left;"><strong>Check</strong></td>
+                     <td style="text-align: left;"><strong>Configured</strong></td>
+                     <td style="text-align: center;"><strong>Compliant</strong></td>
+                     </tr>
+                     <!--Apache HTTP Redirect-->
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td></td>
+                     <td></td>
+                     <td style="text-align: left;">HTTP Redirect to HTTPS</td>
+                     <td style="text-align: left;">{{ hostvars[host].http_stat.redirected }}</td>
+                     {% if hostvars[host].http_stat.redirected %}
+                     <td style="text-align: center; vertical-align: middle;">&#9989;</td>
+                     {% else %}
+                     <td style="text-align: center; vertical-align: middle;">&#10060;</td>
+                     {% endif %}
+                     </tr>
+                     <!--Apache Server Info-->
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td></td>
+                     <td></td>
+                     <td style="text-align: left;">Apache Server Info</td>
+                     <td style="text-align: left;">{{ hostvars[host].https_stat.server }}</td>
+                     {% if 'OpenSSL' in hostvars[host].https_stat.server %}
+                     <td style="text-align: center; vertical-align: middle;">&#9989;</td>
+                     {% else %}
+                     <td style="text-align: center; vertical-align: middle;">&#10060;</td>
+                     {% endif %}
+                     </tr>
+                     <!--Apache HTTP Return status-->
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td></td>
+                     <td></td>
+                     <td style="text-align: left;">Http Return Status</td>
+                     <td style="text-align: left;">{{ hostvars[host].http_stat.status }}</td>
+                     {% if hostvars[host].http_stat.status == 200 %}
+                     <td style="text-align: center; vertical-align: middle;">&#9989;</td>
+                     {% else %}
+                     <td style="text-align: center; vertical-align: middle;">&#10060;</td>
+                     {% endif %}
+                     </tr>
+                     <!--Apache HTTPS Return status-->
+                     <tr class="child-{{ host | replace(".", "") }}" style="display: table-row;">
+                     <td></td>
+                     <td></td>
+                     <td style="text-align: left;">Https Return Status</td>
+                     <td style="text-align: left;">{{ hostvars[host].https_stat.status }}</td>
+                     {% if hostvars[host].https_stat.status == 200 %}
+                     <td style="text-align: center; vertical-align: middle;">&#9989;</td>
+                     {% else %}
+                     <td style="text-align: center; vertical-align: middle;">&#10060;</td>
+                     {% endif %}
+                     </tr>
+                     {% endif %}
+                     {% endif %}
+                     {% endfor %}
+                  </tbody>
+               </table>
+            </div>
+            <br>
+            
+            <center><a href="https://ansible.com"> <img src="https://www.ansible.com/hubfs/Logo-Red_Hat-Ansible_Automation_Platform-A-Standard.svg" width="200px" title="Red Hat Ansible Automation Platform" alt="Red Hat Ansible Automation Platform"/></a></center>
+         </section>
+      </div>
+   </body>
+</html>
+```
+Save all fils, Commit and push your changes to github.
+
+## Step 2 - Generating a compliance report: running the playbook
+
+Back in Automation Controller, click **Projects** and click on the ![refesh](images/refresh.png) icon next to your `Security Workshop Project`. Wait until the project refresh finishes, then select **Templates** and click on the ![Add](images/add.png) icon, and select `Add Job Template`. Use the following values for your new Template:
+
+| Key         | Value                                            | Note |
+|-------------|--------------------------------------------------|------|
+| Name        | Generate and Deploy Report                           |      |
+| Description | Generate and Deploy a Report on the Apache and MariaDB compliance  |      |
+| Job Type    | Run                                              |      |
+| Inventory   | Workshop Inventory                               |      |
+| Project     | Security Workshop Project                            |      |
+| Execution Environment | rhel workshop execution environment             |      |
+| Playbook    | `generate-status-report.yml`                |      |
+| Credential  | Type: **Machine**. Name: **Workshop Credential**     |      |
+| Limit       | web                                          |      |
+| Options     |                                                  |      |
+
+![Create Job Template](images/generate-report-template.png)
+
+Click SAVE and then Click LAUNCH to run the job. The job will start running. Once the Job run completes, the reports are now accessible on the Apache servers at `https://<NODE1's_IP_ADDRESS>/report.html` 
+
+## Step 3 - Generating a compliance report: Inspecting the report
+
+Visiting the URL `https://<NODE1's_IP_ADDRESS>/report.html` or `https://<NODE2's_IP_ADDRESS>/report.html` will display a report that looks like this:
+
+![Compliance Report - compliant](images/report-compliant.png)
+
+The report shows common information for all nodes from the facts gathered by Ansible like the OS, OS version and Kernel Version. Clicking on each host will collapse or expand its specific compliance information. For each node, it shows the node's usage, as well as the Application/Database specific compliance information. Everything should be Compliant as we just finished Securing our LAMP stack.
+Take a minute to inspect all the information on the report.
+
+Practically speaking, the Job template to scan the systems and generate the report could be scheduled to run hourly, daily or on any frequency from the Automation Controller. This allows us to have a report that refreshes regulary so that we could be informed on how we are doing with regards to our security requirements.
+
+## Step 4 - Generating a compliance report: Introducing Drift
+
+Let us now introduce some changes to our systems to simulate unwanted changes that may be un intended or malicious. There is a playbook already written and provided in the `Initial Setup Project` to do just that, make some `"changes"` to our configurations.
+
+In Automation Controller, Select **Templates** and click on the ![Add](images/add.png) icon, and select `Add Job Template`. Use the following values for your new Template:
+
+| Key         | Value                                            | Note |
+|-------------|--------------------------------------------------|------|
+| Name        | Workshop Simulate Drift                          |      |
+| Description | Simulating Drift in our systems                  |      |
+| Job Type    | Run                                              |      |
+| Inventory   | Workshop Inventory                               |      |
+| Project     | Initial Setup Project                            |      |
+| Execution Environment | rhel workshop execution environment    |      |
+| Playbook    | `lab-simulate-drift.yml`                         |      |
+| Credential  | Type: **Machine**. Name: **Workshop Credential** |      |
+| Limit       | web                                              |      |
+| Options     | None Selected                                    |      |
+![Create Job Template](images/simulate-drift-template.png)
+
+Click SAVE and then Click LAUNCH to run the job. The job will start running. Once the Job run completes, Go to your web servers URLs to access the application. Things will look quite normal - maybe you see one issue or maybe not.
+
+
+Now go back and re-run the `Generate and Deploy Report` Job template. Once the Job run completes, the New reports are now deployed on the Apache servers. Load or refresh either URL (`https://<NODE1's_IP_ADDRESS>/report.html` or `https://<NODE2's_IP_ADDRESS>/report.html`) and inspect the output:
+
+![Compliance Report - Drift](images/report-drift.png)
+
+We now see that the following changes have been made to our configurations:
+* **node1:** HTTP redirect to HTTPS has been disabled (Test by going to `https://<NODE1's_IP_ADDRESS>`)
+* **node2:** No drift
+* **node3:** Database no longer forces SSL for the application user
+
+Through this Ansible generated report, we were able to detect any drift from our initial state even though the changes made by the `Workshop Simulate Drift` template may go by unnoticed for a long time in real life.
 
 # Section 4: RESPOND
 
+ We've been able to detect drift using our report, In the respond stage, we would focus on identifying the source of the drift. and once again, Ansible can be used to help!
+ 
+ For example we would write a playbook that would fetch certain log files from the affected hosts and move them to a file server for for further investigation. You could also use Ansible to look for certain patterns in those log files to aid with the analysis. 
+
+ In the interest of time we will not write the log collecting playbook as it is a fairly simple one, and will not have a direct impact on the purpose of this workshop (we are guilty of causing the drift ourselves)
+
+> **Tip**
+>
+> The [ansible.posix.synchronize](https://docs.ansible.com/ansible/latest/collections/ansible/posix/synchronize_module.html) and [ansible.builtin.fetch ](https://docs.ansible.com/ansible/latest/collections/ansible/builtin/fetch_module.html) are useful for moving log files around.
+
+
 # Section 5: RECOVER
+
+The last stage is to fix our configurations and get our LAMP stack back in compliance with the security team's requirements, and this is where using Ansible brings a **huge** advantage. Remember discussing *idempotency* earlier? we can use the same `SSL Setup` job template we used initially to apply the our security configuration to remediate our drift. 
+
+
+In Automation Controller, Select **Templates** and run the `SSL Setup` job template. The playbook will go through All the steps to configure everything based on our requirements, but will only make changes when needed, in this case will only make changes to anything that was misconfigured.
+
+
+After the run completes, go back to **Templates** and run the `Generate and Deploy Report` job template again to rescan the LAMP stack and regenerate the reports. Once that is done go to the report URL at `https://<NODE1's_IP_ADDRESS>/report.html` or `https://<NODE2's_IP_ADDRESS>/report.html` and inspect the report:
+
+![Compliance Report - compliant](images/report-compliant.png)
+
+We should be back to all compliant!
+
+> **Tip**
+>
+> Ansible Controller has the ability to build workflows that can be used to string together multiple Job templates as a single executable entity. A lot of the steps covered in this workshop would realistically be put together in a single workflow for hands-off scanning/recovery/remediation if required. 
+
+<br><br>
+
+And thats it! This workshop covered the usage of Ansible and the Red Hat Ansible Automation Platform to handle all the stages of the cybersecurity framework. Take the concepts of this workshop and apply them to your specific environment and your specific technologies. If you are not a current Red Hat Ansible Automation Platform Customer, you can request a [trial](https://www.redhat.com/en/technologies/management/ansible/try-it) to evaluate using Ansible for your security processes 
+
+<br><br>
 ---
 ![Red Hat Ansible Automation](images/rh-ansible-automation-platform.png)
