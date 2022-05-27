@@ -8,16 +8,7 @@
   ansible.builtin.set_fact:
     webapp_password: "{{ mysql_password['content'] | b64decode | trim }}"
 
-- name: Modifying the Application DB User to require SSL
-  community.mysql.mysql_user:
-    login_host: localhost
-    login_port: "{{ mariadb_port }}"
-    login_user: root
-    login_password: "{{ webapp_password }}"
-    name: "{{ mariadb_username }}"
-    state: absent
-
-- name: Create the Application DB User to Not require SSL
+- name: Modify the Application DB User to Not require SSL
   community.mysql.mysql_user:
     login_host: localhost
     login_port: "{{ mariadb_port }}"

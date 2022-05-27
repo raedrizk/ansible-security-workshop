@@ -8,7 +8,7 @@
   - modify-mariadb-host
 
 - name: Disable HTTP Redirect
-  hosts: "{{ apache_host }}"
+  hosts: "{{ apache_host[0] }}"
   gather_facts: False
   become: True
   vars_files: vars/lab-setup.yml
