@@ -1,4 +1,4 @@
-# [WIP] Ansible Workshop - Ansible for Red Hat Enterprise Linux Security Automation
+# Ansible Workshop - Ansible for Red Hat Enterprise Linux Security Automation
 
 
 This 90-minute workshop provides you with a hands on set of exercises that aim to introduce you to how Ansible and the Red Hat Ansible Automation Platform could be used for day to day security operations. 
@@ -130,8 +130,7 @@ on the left panel, and then click the name of our Inventory **Workshop Inventory
 
 > **Tip**
 >
-> You can use either one of the webserver nodes `node1` or `node2` to view the appication, or in upcoming exercises. The instructions will always refer to `node1` for simplicity, but feel free to check `node2` or both!
-
+> You can use either one of the webserver nodes `node1` or `node2` to view the appication now or in upcoming exercises. The instructions will always refer to `node1` for simplicity, but feel free to check `node2` or both!
 
 Copy that IP address and launch a new browser windows or tab and put in `http://<NODE1's_IP_ADDRESS_YOU_JUST_COPIED>` and look at the webpage:
 
@@ -143,12 +142,12 @@ What you are seeing is the PHP application that was deployed, where the name of 
 >
 > Find more information on  MySQL Encrypted Connection TLS Protocols and Ciphers [here](https://dev.mysql.com/doc/refman/5.7/en/encrypted-connection-protocols-ciphers.html).
 
-Now try using `https` to access the same page by going to `https://<NODE1's_IP_ADDRESS_YOU_JUST_COPIED>`. You should get an `ERR_CONNECTION_REFUSED`. That is expected since Apache was only configured to listen for http connections.
+Now try using `https` to access the same page by going to `https://<NODE1's_IP_ADDRESS_YOU_JUST_COPIED>`. You should get an `ERR_CONNECTION_REFUSED` error page. That is expected since Apache was only configured to listen for http connections.
 
 ![Application over HTTPS](images/https-non-encrypted.png)
 
 
-Now that the setup is complete, we can introduce the framework that we will be using for this workshop, and that is the `NIST Cybersecurity Framework Version 1.1` as shown in the following diagram (Credit: N. Hanacek/NIST):
+Now that the setup is complete, we can introduce the framework that we will be using for this workshop, and that is the `NIST Cybersecurity Framework Version 1.1` as shown in the following diagram *(Credit: N. Hanacek/NIST)*:
 
 ![Credit: N. Hanacek/NIST](images/cybersecurity_framework_version_1.1_nice.png)
 
@@ -164,14 +163,15 @@ For this workshop we will assume that the security team have highlighted the fol
 1. **All traffic between the web application and the database should be encrypted.**
 2. **All traffic to the web application should be encrypted.** 
 
-Based on the initial setup of the workshop described earlier, we can tell that based on these requirements, we have some work to do. we know that the webserver only listens for http traffic, and based on the variables displayed for the database session information, we know that the communication to the database is unencrypted. 
+Based on the initial setup of the workshop described earlier, we can tell that to meet those requirements, we have some work to do!:
+1. We know that the webserver only listens for http traffic
+2. Based on the variables displayed for the database session information, we know that the communication to the database is unencrypted. 
 
 Now that we have identified what we need to address based on the requirements, in the next section we will use Ansible to write a playbook that will enforce these requirements.
 
 > **Tip**
 >
-> Make sure that you have your public git repository created, as well as your editor of choice (your own IDE or Visual Studio Code provided with your environemnt details) configured to push code to that repository before proceeding to section 2.
-
+> Make sure that your editor of choice (your own IDE or Visual Studio Code provided with your environemnt details) is configured with account information to be able to push code to a repository before proceeding to section 2.
 
 
 # Section 2: PROTECT
@@ -184,11 +184,16 @@ With our requirements in hand, let us begin the process of automating these requ
 
 ## Step 1 - Preparing your Project and Automation Controller
 
-This workshop assumes you have a github account, and are familiar and comfortable working with git based SCMs. for the purposes of this workshop, create a new repository by signing into github.com, going to repositories and clicking on the `New` button. Name the repository `ansible-rhel-security-workshop` and leave the repo as public (If you want to make it private, you can, you will just have to make sure to add a new SCM credential to Automation Controller later on when defining the project). This is the project we will be using for the playbooks we write for the exercises in this workshop.
+This workshop assumes you have a github account, and are familiar and comfortable working with git based SCMs. for the purposes of this workshop, create a new repository by signing into `github.com`, going to repositories and clicking on the `New` button. Name the repository `ansible-rhel-security-workshop` and leave the repo as public. This is the project we will be using for the playbooks we write for the exercises in this workshop.
+
+> **Tip**
+>
+> If you want to make your repository private, you can, you will just have to make sure to add a new SCM credential to Automation Controller later on and specify that credential in your project definition later on when defining the project.
+
 
 Next you will need to clone and configure your git project, The steps will differ if you are using your own machine wih your own IDE, or using the VSCode instance provisioned for you with theis workshop.
 
-Once everything is setup and ready, in your project directory, create a new folder named `collections` and in that folder create a file named `requirements.yml` to hold the information about the collections containing some of the modules that we will be using. Automation Controller is configured to download the collections in the `requirements.yml` file automaticallu when the project is synced.
+Once everything is setup and ready, in your project directory, create a new folder named `collections` and in that folder create a file named `requirements.yml` to hold the information about the collections containing some of the modules that we will be using. Automation Controller is configured to download the collections in the `requirements.yml` file automatically when the project is synced.
 
 Place the follwing in the `requirements.yml` file:
 
@@ -274,7 +279,7 @@ Now we are ready to start writing the playbook. In your project directory root c
   become: True
 ```
 
-Since we will not need or use any of the facts gathered by Ansible,  we have disabled fact gathering by setting `gather_facts: false` to decrease overhead. We also pointed to the variables file we created earlier. We set the `become` directive to `True` to run our tasks as a privilaged user, and we tagged the play with a `mariadb` tag.
+Since we will not need or use any of the facts gathered by Ansible,  we have disabled fact gathering by setting `gather_facts: false` to decrease overhead. We also pointed to the variables file we created earlier. We set the `become` directive to `True` to run our tasks as a privilaged user, and we tagged the play with a `mysql` tag.
 
 Next we will add our tasks to the play:
 
@@ -353,7 +358,7 @@ Looking at the set of tasks we just added:
 
  > **Tip**
 >
-> Note that while we use the same set of tasks to generate the CA key and Cert and the Server Key and Sert, each set of tasks have different configurations to control the Certificate generation for values such as the provider and the common name. For more information on the available paramaters, and other related modules, check out the `community.crypto` [docs](https://galaxy.ansible.com/community/crypto)
+> Note that while we use the same set of tasks to generate the CA key and certificate and the Server key and certificate, each set of tasks have different configurations to control the Certificate generation for values such as the provider and the common name. For more information on the available paramaters, and other related modules, check out the `community.crypto` [docs](https://galaxy.ansible.com/community/crypto)
 
 
 Next we will configure MariaDB to point  to the new certificates that we just generated by editing the server configuration file. We will need to add a handler to make sure that the database server  is restarted to pick up the new configurations if any changes are made to the configuration file. Add the following task and handler section to your play:
@@ -993,6 +998,12 @@ The full playbook so far should look like this:
       src: templates/dbvars.php.j2
       dest: "{{ apache_host_docroot }}/dbvars.php"
 
+  - name: Install mod_ssl 
+    ansible.builtin.dnf:
+      name: mod_ssl
+      state: latest
+    notify: restart apache
+
   - name: Create directory to hold Apache key and cert
     ansible.builtin.file:
       path: "{{ apache_certs_path }}"
@@ -1019,12 +1030,6 @@ The full playbook so far should look like this:
    
   - name: Apply new SELinux file context to filesystem
     ansible.builtin.command: restorecon -irv "{{ apache_certs_path }}/"
-
-  - name: Install mod_ssl 
-    ansible.builtin.dnf:
-      name: mod_ssl
-      state: latest
-    notify: restart apache
 
   - name: edit the ssl configuration file to point to the generated certificate
     ansible.builtin.lineinfile:
@@ -2003,7 +2008,7 @@ In the `report.html.j2` file place the following content:
    </body>
 </html>
 ```
-Save all fils, Commit and push your changes to github.
+Save all files then commit and push your changes to github.
 
 ## Step 2 - Generating a compliance report: running the playbook
 
@@ -2059,17 +2064,20 @@ In Automation Controller, Select **Templates** and click on the ![Add](images/ad
 
 Click SAVE and then Click LAUNCH to run the job. The job will start running. Once the Job run completes, Go to your web servers URLs to access the application. Things will look quite normal - maybe you see one issue or maybe not.
 
+> **Tip**
+>
+> Inspecting the output of the `Workshop Simulate Drift` job will show exactly what broke in our configuration, so it is suggested that you do not read the output of the job while its running.
 
 Now go back and re-run the `Generate and Deploy Report` Job template. Once the Job run completes, the New reports are now deployed on the Apache servers. Load or refresh either URL (`https://<NODE1's_IP_ADDRESS>/report.html` or `https://<NODE2's_IP_ADDRESS>/report.html`) and inspect the output:
 
 ![Compliance Report - Drift](images/report-drift.png)
 
 We now see that the following changes have been made to our configurations:
-* **node1:** HTTP redirect to HTTPS has been disabled (Test by going to `https://<NODE1's_IP_ADDRESS>`)
-* **node2:** No drift
-* **node3:** Database no longer forces SSL for the application user
+* **node1:** HTTP redirect to HTTPS has been disabled (Test by going to `http://<NODE1's_IP_ADDRESS>`).
+* **node2:** No drift.
+* **node3:** Database no longer enforces SSL for the application database user (Even though the connection from the application still uses SSL).
 
-Through this Ansible generated report, we were able to detect any drift from our initial state even though the changes made by the `Workshop Simulate Drift` template may go by unnoticed for a long time in real life.
+Through this Ansible generated report, we were able to detect any drift from our initial state even though the changes made by the `Workshop Simulate Drift` template may go by un-noticed for a long time in real life.
 
 # Section 4: RESPOND
 
@@ -2077,7 +2085,7 @@ Through this Ansible generated report, we were able to detect any drift from our
  
  For example we would write a playbook that would fetch certain log files from the affected hosts and move them to a file server for for further investigation. You could also use Ansible to look for certain patterns in those log files to aid with the analysis. 
 
- In the interest of time we will not write the log collecting playbook as it is a fairly simple one, and will not have a direct impact on the purpose of this workshop (we are guilty of causing the drift ourselves)
+ In the interest of time we will not write the log collecting playbook as it is a fairly simple one, and will not have a direct impact on the purpose of this workshop (we are guilty of causing the drift ourselves).
 
 > **Tip**
 >
@@ -2086,7 +2094,7 @@ Through this Ansible generated report, we were able to detect any drift from our
 
 # Section 5: RECOVER
 
-The last stage is to fix our configurations and get our LAMP stack back in compliance with the security team's requirements, and this is where using Ansible brings a **huge** advantage. Remember discussing *idempotency* earlier? we can use the same `SSL Setup` job template we used initially to apply the our security configuration to remediate our drift. 
+The last stage is to fix our configurations and get our LAMP stack back in compliance with the security team's requirements, and this is where using Ansible brings a **huge** advantage. Remember discussing *idempotency* earlier? we can use the same `SSL Setup` job template we used initially to re-apply the our security configuration in order to remediate our drift. 
 
 
 In Automation Controller, Select **Templates** and run the `SSL Setup` job template. The playbook will go through All the steps to configure everything based on our requirements, but will only make changes when needed, in this case will only make changes to anything that was misconfigured.
@@ -2104,7 +2112,7 @@ We should be back to all compliant!
 
 <br><br>
 
-And thats it! This workshop covered the usage of Ansible and the Red Hat Ansible Automation Platform to handle all the stages of the cybersecurity framework. Take the concepts of this workshop and apply them to your specific environment and your specific technologies. If you are not a current Red Hat Ansible Automation Platform Customer, you can request a [trial](https://www.redhat.com/en/technologies/management/ansible/try-it) to evaluate using Ansible for your security processes 
+And thats it! This workshop covered the usage of Ansible and the Red Hat Ansible Automation Platform to handle all the stages of the cybersecurity framework. Take the concepts of this workshop and apply them to your specific environment and your specific technologies. If you are not a current Red Hat Ansible Automation Platform Customer, you can request a [trial](https://www.redhat.com/en/technologies/management/ansible/try-it) to evaluate using Ansible for your security processes. 
 
 <br><br>
 ---
