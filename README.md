@@ -45,14 +45,14 @@ For this workshop, we chose a LAMP stack as our target for security policies, ho
 
 ## Step 1 - Setup the Security Workshop Project
 
-The lab environemnt described above will need to be configured before going through the exercises in this workshop, and to do so a playbook has been written to do the following:
+The lab environment described above will need to be configured before going through the exercises in this workshop, and to do so a playbook has been written to do the following:
 * Stop `firewalld` and install, start and enable `auditd` on all the RHEL hosts.
 * Install and configure `MariaDB` on `node3` (by default) to act as the backend for our sample webapp. 
     * A sample database `webapp_db` will be created, and populated with a simple table containing information on the name and version of our application. 
     * a user `webapp` that can connect to the database from any host and does not require an encrypted connection.
     * Database will not initially be configured to use SSL
-    * Databse will be configured to use a non default port , 3389
-    * Database will be configured to listen for connections from All hosts
+    * Database will be configured to use a non default port , 3389
+    * Database will be configured to listen for connections from all hosts
 * Install and configure `Apache` and `PHP` on `node1` and `node2` (by default) to act as our webservers.
     * A simple php page will be deployed to the docroot that connects to the `MariaDB` server and display the name and version of the application
     * The php page will also display information on the status of the database session with regards to the `SSL Cipher` and `SSL Version` if and only if the connection uses SSL.
@@ -62,7 +62,7 @@ The lab environemnt described above will need to be configured before going thro
 <br>
 
 In order to import the setup playbook into Automation Controller, we will need to define a new project.
-To start, log on to Automation Controller using your environemnt details, click **Projects** and click on the ![Add](images/add.png) icon. Use the following values for your new Project:
+To start, log on to Automation Controller using your environment details, click **Projects** and click on the ![Add](images/add.png) icon. Use the following values for your new Project:
 
 | Key                              | Value                                                             | Note |
 |----------------------------------|-------------------------------------------------------------------|------|
@@ -80,7 +80,7 @@ To start, log on to Automation Controller using your environemnt details, click 
 Project Definition will look like this: ![New Project](images/initial-setup-project.png)
 
 
-click on the ![Save](images/save.png) icon, and you will be rediected to the project details page, and a Job will automatically be created to sync the project in Controller. Wait until the `Last Job Status` shows ![Project Successfull](images/project-successful.png). If you get a failure, click the edit button, verify that you entered the project details correctly and save the project.
+click on the ![Save](images/save.png) icon, and you will be redirected to the project details page, and a Job will automatically be created to sync the project in Controller. Wait until the `Last Job Status` shows ![Project Successfull](images/project-successful.png). If you get a failure, click the edit button, verify that you entered the project details correctly and save the project.
 
 
 
@@ -119,14 +119,14 @@ The initial configuration for the workshop is now complete.
 
 ## Step 3 - Validate the setup
 
-The lab environemnt should now be setup as descibed earlier with MariaDB and Apache running. In order to validate, we can visit the web server to see the application that was deployed. Click **Inventories**
+The lab environment should now be setup as descibed earlier with MariaDB and Apache running. In order to validate, we can visit the web server to see the application that was deployed. Click **Inventories**
 on the left panel, and then click the name of our Inventory **Workshop Inventory**. Now that you are on the Inventory Details page, we will need to go select our Host. So click **HOSTS**, and click on **node1** since that is one of the webserver nodes (by default) and inspect the node's IP address under the `variables` section. 
 
 ![Inevntory Node](images/inventory-node-1.png)
 
 > **Tip**
 >
-> The IP Address in your inventory will be different than the one in the screenshot above. Make sure you use the address specific to your lab environemnt.
+> The IP Address in your inventory will be different than the one in the screenshot above. Make sure you use the address specific to your lab environment.
 
 > **Tip**
 >
@@ -171,7 +171,7 @@ Now that we have identified what we need to address based on the requirements, i
 
 > **Tip**
 >
-> Make sure that your editor of choice (your own IDE or Visual Studio Code provided with your environemnt details) is configured with account information to be able to push code to a repository before proceeding to section 2.
+> Make sure that your editor of choice (your own IDE or Visual Studio Code provided with your environment details) is configured with account information to be able to push code to a repository before proceeding to section 2.
 
 
 # Section 2: PROTECT
@@ -195,7 +195,7 @@ Next you will need to clone and configure your git project, The steps will diffe
 
 Once everything is setup and ready, in your project directory, create a new folder named `collections` and in that folder create a file named `requirements.yml` to hold the information about the collections containing some of the modules that we will be using. Automation Controller is configured to download the collections in the `requirements.yml` file automatically when the project is synced.
 
-Place the follwing in the `requirements.yml` file:
+Place the following in the `requirements.yml` file:
 
 ```yaml
 ---
@@ -212,7 +212,7 @@ your directory structure in your project folder should look like this:
 ├── collections
 │   └── requirements.yml
 ```
-Commit and Push your files to github, and then move to Automation Controller. Log on to Automation Controller using your environemnt details, click **Projects** and click on the ![Add](images/add.png) icon. Use the following values for your new Project:
+Commit and Push your files to github, and then move to Automation Controller. Log on to Automation Controller using your environment details, click **Projects** and click on the ![Add](images/add.png) icon. Use the following values for your new Project:
 
 | Key                              | Value                                                                       | Note |
 |----------------------------------|-----------------------------------------------------------------------------|------|
@@ -231,13 +231,13 @@ Commit and Push your files to github, and then move to Automation Controller. Lo
 Project Definition will look like this: ![New Project](images/security-project.png)
 
 
-click on the ![Save](images/save.png) icon, and you will be rediected to the project details page, and a Job will automatically be created to sync the project in Controller. Wait until the `Last Job Status` shows ![Project Successfull](images/project-successful.png). If you get a failure, click the edit button, verify that you entered the project details correctly and save the project.
+click on the ![Save](images/save.png) icon, and you will be redirected to the project details page, and a Job will automatically be created to sync the project in Controller. Wait until the `Last Job Status` shows ![Project Successfull](images/project-successful.png). If you get a failure, click the edit button, verify that you entered the project details correctly and save the project.
 
 
-## Step 2 - Enabling SSL on MariaD: writing the playbook
+## Step 2 - Enabling SSL on MariaDB: writing the playbook
 
 
-In your project directory, also create a folder named `vars` and in that folder create a file named `ssl-vars.yml` to hold some of the variables we will be passing to our playbook. Place the following in the `ssl-vars.yml` file:
+In your project directory, create a folder named `vars` and in that folder create a file named `ssl-vars.yml` to hold some of the variables we will be passing to our playbook. Place the following in the `ssl-vars.yml` file:
 
 ```yaml
 ---
@@ -279,7 +279,7 @@ Now we are ready to start writing the playbook. In your project directory root c
   become: True
 ```
 
-Since we will not need or use any of the facts gathered by Ansible,  we have disabled fact gathering by setting `gather_facts: false` to decrease overhead. We also pointed to the variables file we created earlier. We set the `become` directive to `True` to run our tasks as a privilaged user, and we tagged the play with a `mysql` tag.
+Since we will not need or use any of the facts gathered by Ansible,  we have disabled fact gathering by setting `gather_facts: false` to decrease overhead. We also pointed to the variables file we created earlier. We set the `become` directive to `True` to run our tasks as a privileged user, and we tagged the play with a `mysql` tag.
 
 Next we will add our tasks to the play:
 
@@ -497,7 +497,7 @@ Save your playbook, make sure that your project directory structure looks like t
 
 Commit and push your playbook to github.
 
-## Step 3 - Enabling SSL on MariaD: running the playbook
+## Step 3 - Enabling SSL on MariaDB: running the playbook
 
 Back in Automation Controller, click **Projects** and click on the ![refesh](images/refresh.png) icon next to your `Security Workshop Project`. Wait until the project refresh finishes, then select **Templates** and click on the ![Add](images/add.png) icon, and select `Add Job Template`. Use the following values for your new Template:
 
@@ -516,7 +516,7 @@ Back in Automation Controller, click **Projects** and click on the ![refesh](ima
 
 ![Create Job Template](images/ssl-setup-template.png)
 
-Click SAVE and then Click LAUNCH to run the job. The job will start running, and you will be able to see the output. Once the job run completes, the MariaDB instance will be configured to use SSL, however if we visit the IP address of `node1` we will still see no values for the `Ssl_version` and `Ssl_cipher`, the reason being that even though we configured MariaDB to use SSL conections, we are not requiring the user that the application connects with to use TLS. so go back to your IDE, and add the following tasks in the tasks section:
+Click SAVE and then Click LAUNCH to run the job. The job will start running, and you will be able to see the output. Once the job run completes, the MariaDB instance will be configured to use SSL, however if we visit the IP address of `node1` we will still see no values for the `Ssl_version` and `Ssl_cipher`, the reason being that even though we configured MariaDB to use SSL connections, we are not requiring the user that the application connects with to use TLS. so go back to your IDE, and add the following tasks in the tasks section:
 
 ```yaml
   - name: Read the generated password
@@ -1058,13 +1058,13 @@ The full playbook so far should look like this:
       state: restarted
       enabled: True   
 ```
-Commit and push your playbook to github. Back in Automation Controller , go to templates and click the ![launch](images/launch.png) icon next to your `SSL Setup` Job Template. After the job run is complete, visit the URL of `node1` over https (`https://<NODE1's_IP_ADDRESS>`). This time instead of an error, you should be able to access the application over https, and still see that it is connected to the databse over SSL:
+Commit and push your playbook to github. Back in Automation Controller , go to templates and click the ![launch](images/launch.png) icon next to your `SSL Setup` Job Template. After the job run is complete, visit the URL of `node1` over https (`https://<NODE1's_IP_ADDRESS>`). This time instead of an error, you should be able to access the application over https, and still see that it is connected to the database over SSL:
 
 ![HTTPS Encrypted](images/https-encrypted.png)
 
 > **Tip**
 >
-> The insecure warning your browser will show is due to the fact that we are using a self signed certificate that cannot be validated. In real environemnts real certificates would be used that can be validated and thus will not show the warning.
+> The insecure warning your browser will show is due to the fact that we are using a self signed certificate that cannot be validated. In real environments real certificates would be used that can be validated and thus will not show the warning.
 
 We are almost done, as the application can still be reachable over http as well as https, we need to redircet all http requests to https. For the last time, lets add some tasks to the `Configure SSL for apache` play in our playbook in the `tasks` section:
 
@@ -1326,7 +1326,7 @@ We now have a playbook that can consistantly apply the requirements laid out by 
 # Section 3: DETECT
 
 With the security team's requirements met, we can now forget about the application and the database right? 
-Absoloutly not! while security incidents do originate from initial misconfiguration, they also can be due to the configuration *changing* over time,  whether due to unintentional changes or purposful malicious intent. So how do you make sure that your configurations match your policies?
+Absolutely not! While security incidents do originate from initial misconfiguration, they also can be due to the configuration *changing* over time,  whether due to unintentional changes or purposful malicious intent. So how do you make sure that your configurations match your policies?
 
 **Good news! Ansible can still help in multiple ways.**
 
@@ -1529,10 +1529,10 @@ The playbook we just created has 3 plays:
   * we use the `ansible.builtin.lineinfile` to check for certain configurations in configuration files.
   * we use the `mysql_user` module from the `community.mysql` collection to check the database user and the requirement to use encrypted connections.
   * we use the `mysql_query` module from the `community.mysql` collection to run a query with the database user and certificate to check the SSL Version and SSL Cipher.
-  * Finally we set host facts wit the collected information.
+  * Finally we set host facts with the collected information.
 2. The second play `Gather infomation from Apache hosts` Runs on the Apache hosts, and collects information related to the SSL configuraion for Apache, as well as the HTTP to HTTPS redirect:
-   * we use the `ansible.builtin.uri` module to check the status of the HTTP and HTTP requests, and that the redircet is setup correctly on the Apache nodes.
-    * Finally we set host facts wit the collected information.
+   * we use the `ansible.builtin.uri` module to check the status of the HTTP and HTTP requests, and that the redirect is set up correctly on the Apache nodes.
+    * Finally we set host facts with the collected information.
 3. The final play `Generate and Deploy the Report` runs on all the hosts, and gathers Facts from all hosts, and generates the report using the `ansible.builtin.template` module and a template file we will create next, and deploys that report to the Apache hosts so that we may access that report as a webpage.
 
 we then need to create the template file that will be used to generate the report. In the `templates` directory, create a file names `report.html.j2`. The project directory structure should now look like this:
