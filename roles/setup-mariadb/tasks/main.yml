@@ -77,12 +77,13 @@
     login_user: root
     login_password: "{{ webapp_password }}"
     name: 'webappssl'
-    host: "{{ apache_host }}.example.com"
+    host: "{{ item }}.example.com"
     password: "{{ webapp_password }}"
     priv: '*.*:ALL'
     tls_requires:
       ssl:
     state: present
+  loop: "{{ apache_host }}"
 
 - name: create simple appp database
   community.mysql.mysql_db:
