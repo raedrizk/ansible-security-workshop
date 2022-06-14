@@ -70,21 +70,6 @@
     priv: '*.*:ALL'
     state: present
 
-- name: Create the application DB user while requiring ssl
-  community.mysql.mysql_user:
-    login_host: localhost
-    login_port: 3389
-    login_user: root
-    login_password: "{{ webapp_password }}"
-    name: 'webappssl'
-    host: "{{ item }}.example.com"
-    password: "{{ webapp_password }}"
-    priv: '*.*:ALL'
-    tls_requires:
-      ssl:
-    state: present
-  loop: "{{ apache_host }}"
-
 - name: create simple appp database
   community.mysql.mysql_db:
     login_host: localhost
