@@ -1,6 +1,5 @@
 # Ansible Workshop - Ansible for Red Hat Enterprise Linux Security Automation
 
-
 This 90-minute workshop provides you with a hands on set of exercises that aim to introduce you to how Ansible and the Red Hat Ansible Automation Platform could be used for day to day security operations. 
 
 ## Table of Contents
@@ -23,7 +22,6 @@ This 90-minute workshop provides you with a hands on set of exercises that aim t
 
 The exercises are self explanatory and guide the participants through the entire lab.
 
-
 ## Time planning
 
 This workshop was created to last about 90 minutes.
@@ -35,7 +33,6 @@ This workshop was created to last about 90 minutes.
 ## Disclaimer
 
 For this workshop, we chose a LAMP stack as our target for security policies, however this workshop is not about the specific technology being secured, but about the concepts, framework and methodology used. The Workshop is less about the actual steps to Secure the LAMP stack, and more about how we went about approaching the security tasks. All the concepts are applicable to your specific technologies, please keep that in mind.
-
 
 ## Ansible Automation Platform Exercises
 
@@ -57,7 +54,6 @@ The lab environment described above will need to be configured before going thro
     * A simple php page will be deployed to the docroot that connects to the `MariaDB` server and display the name and version of the application
     * The php page will also display information on the status of the database session with regards to the `SSL Cipher` and `SSL Version` if and only if the connection uses SSL.
     * The server listens on port 80 (http), and does not listen on 443 (https).
-
 
 <br>
 
@@ -82,15 +78,11 @@ Project Definition will look like this: ![New Project](images/initial-setup-proj
 
 click on the ![Save](images/save.png) icon, and you will be redirected to the project details page, and a Job will automatically be created to sync the project in Controller. Wait until the `Last Job Status` shows ![Project Successfull](images/project-successful.png). If you get a failure, click the edit button, verify that you entered the project details correctly and save the project.
 
-
-
 > **Tip**
 >
 > We will be setting up another project later to host the playbooks we will write during this workshop.
 
-
 ## Step 2 - Create the `Workshop Initial Setup` Job template
-
 
 Now that the project sync is complete, Select **Templates** and click on the ![Add](images/add.png) icon, and select `Add Job Template`. Use the following values for your new Template:
 
@@ -281,7 +273,7 @@ Now we are ready to start writing the playbook. In your project directory root c
 
 Since we will not need or use any of the facts gathered by Ansible,  we have disabled fact gathering by setting `gather_facts: false` to decrease overhead. We also pointed to the variables file we created earlier. We set the `become` directive to `True` to run our tasks as a privileged user, and we tagged the play with a `mysql` tag.
 
-Next we will add our tasks to the play:
+Next we will add our tasks to the play by adding the following to the same `setup-ssl.yml` file:
 
 
 ```yaml
@@ -516,7 +508,7 @@ Back in Automation Controller, click **Projects** and click on the ![refesh](ima
 
 ![Create Job Template](images/ssl-setup-template.png)
 
-Click SAVE and then Click LAUNCH to run the job. The job will start running, and you will be able to see the output. Once the job run completes, the MariaDB instance will be configured to use SSL, however if we visit the IP address of `node1` we will still see no values for the `Ssl_version` and `Ssl_cipher`, the reason being that even though we configured MariaDB to use SSL connections, we are not requiring the user that the application connects with to use TLS. so go back to your IDE, and add the following tasks in the tasks section:
+Click SAVE and then Click LAUNCH to run the job. It may take a minute for the job to start running, and you will be able to see the output once it does. Once the job run completes, the MariaDB instance will be configured to use SSL, however if we visit the IP address of `node1` we will still see no values for the `Ssl_version` and `Ssl_cipher`, the reason being that even though we configured MariaDB to use SSL connections, we are not requiring the user that the application connects with to use TLS. so go back to your IDE, and add the following tasks in the tasks section:
 
 ```yaml
   - name: Read the generated password
@@ -686,13 +678,13 @@ So the full playbook looks like this:
       state: restarted
       enabled: True  
 ``` 
-Commit and push your playbook to github. Back in Automation Controller , go to templates and click the ![launch](images/launch.png) icon next to your `SSL Setup` Job Template. The job will rerun, but now it will edit the database user to rquire SSL.
+Commit and push your playbook to github. Back in Automation Controller , go to templates and click the ![launch](images/launch.png) icon next to your `SSL Setup` Job Template. The job will rerun, but now it will edit the database user to require SSL.
 
 After the job completes, go back and refresh the URL of `node1` which was `http://<NODE1's_IP_ADDRESS>` , and you should see the following:
 
 ![Access Denied](images/http-encrypted-access-denied.png)
 
-The connection failure error confirms that Since the database user now requires SSL, and the web application was not configured to use SSL in the first place, we are on the right track.
+The connection failure error confirms that since the database user now requires SSL, and the web application was not configured to use SSL in the first place, we are on the right track.
 
 > **Tip**
 >
@@ -1326,11 +1318,11 @@ We now have a playbook that can consistantly apply the requirements laid out by 
 # Section 3: DETECT
 
 With the security team's requirements met, we can now forget about the application and the database right? 
-Absolutely not! While security incidents do originate from initial misconfiguration, they also can be due to the configuration *changing* over time,  whether due to unintentional changes or purposful malicious intent. So how do you make sure that your configurations match your policies?
+Absolutely not! While security incidents do originate from initial misconfiguration, they also can be due to the configuration *changing* over time,  whether due to unintentional changes or purposeful malicious intent. So how do you make sure that your configurations match your policies?
 
 **Good news! Ansible can still help in multiple ways.**
 
-One of the ways relies on the idempotency of Ansible Playbooks (if idempotent modules are used), and works by running your configuartion Job templates from Automation Controller in `check` mode (which reports changes by tasks that will infact make a change to the system state without making the change) on a schedule, and configuring Automation Controller to an external log aggregator. Using the indexed job logs, reports could then be created that displays the information on systems that will have changes applied to them, indicating their drift.
+One of the ways relies on the idempotency of Ansible Playbooks (if idempotent modules are used), and works by running your configuration Job templates from Automation Controller in `check` mode (which reports changes by tasks that will infact make a change to the system state without making the change) on a schedule, and configuring Automation Controller to an external log aggregator. Using the indexed job logs, reports could then be created that displays the information on systems that will have changes applied to them, indicating their drift.
 
 Another way is relying on Jinja2 templates to generate a custom report that can be emailed, stored in a certain location, deployed as a webpage or many other ways to show the state of the systems with respect to our required configurations. This is the approach we will explore in this workshop.
 
@@ -2060,6 +2052,8 @@ In Automation Controller, Select **Templates** and click on the ![Add](images/ad
 | Credential  | Type: **Machine**. Name: **Workshop Credential** |      |
 | Limit       | web                                              |      |
 | Options     | None Selected                                    |      |
+
+
 ![Create Job Template](images/simulate-drift-template.png)
 
 Click SAVE and then Click LAUNCH to run the job. The job will start running. Once the Job run completes, Go to your web servers URLs to access the application. Things will look quite normal - maybe you see one issue or maybe not.
