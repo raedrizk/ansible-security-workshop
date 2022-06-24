@@ -15,8 +15,8 @@ This 90-minute workshop provides you with a hands on set of exercises that aim t
 ## Prerequisites
 
 * This Workshop assumes some knowledge of Ansible and the Ansible Automation Platform. 
-* Each attendee is required to have a `github` account. If you do not have one, you can register for a free account on [github.com](https://github.com/signup)
-* This workshop assumed previous knowledge and working experience with git based SCM systems like github 
+* Each attendee is required to have a **personal** `github` account. If you do not have one, you can register for a free account on [github.com](https://github.com/signup)
+* This workshop assumed previous knowledge and working experience with git based SCM systems like github, including creating and forking of Repositories, creating/using  personal access tokens and commiting code to a repository. A quick tutorial can be found [here](https://docs.github.com/en/get-started/quickstart/hello-world).
 
 ## Presentations
 
@@ -67,7 +67,7 @@ To start, log on to Automation Controller using your environment details, click 
 | Organization                     | Default                                                           |      |
 | Execution Environment            | Leave Blank                                                       |      |
 | Source Control Type              | Git                                                               |      |
-| Source Control URL               | Clone the URL of the git repo you are reading the instructions on |      |
+| Source Control URL               | Copy the HTTPS web URL of the git repo you are reading the instructions on |      |
 | Source Control Branch/Tag/Commit | Leave Blank                                                       |      |
 | Source Control Refspec           | Leave Blank                                                       |      |
 | Source Control Credential        | Leave Blank                                                       |      |
@@ -111,7 +111,7 @@ The initial configuration for the workshop is now complete.
 
 ## Step 3 - Validate the setup
 
-The lab environment should now be setup as descibed earlier with MariaDB and Apache running. In order to validate, we can visit the web server to see the application that was deployed. Click **Inventories**
+The lab environment should now be set up as descibed earlier with MariaDB and Apache running. In order to validate, we can visit the web server to see the application that was deployed. Click **Inventories**
 on the left panel, and then click the name of our Inventory **Workshop Inventory**. Now that you are on the Inventory Details page, we will need to go select our Host. So click **HOSTS**, and click on **node1** since that is one of the webserver nodes (by default) and inspect the node's IP address under the `variables` section. 
 
 ![Inevntory Node](images/inventory-node-1.png)
@@ -145,6 +145,11 @@ Now that the setup is complete, we can introduce the framework that we will be u
 
 In this workshop, we will cover all the stages of this framework on a very small subset of requirements to convey how Ansible and the Red Hat Ansible Automation Platform could be valuable to security teams looking for a way to automate and streamline their day to day security processes and requirements.
 
+> **Tip**
+>
+> The details of the NIST Cybersecurity Framework will not be covered in this workshop, however you can read more about it [here](https://www.nist.gov/cyberframework).
+
+
 
 # Section 1: IDENTIFY
 
@@ -154,6 +159,8 @@ For this workshop we will assume that the security team have highlighted the fol
 
 1. **All traffic between the web application and the database should be encrypted.**
 2. **All traffic to the web application should be encrypted.** 
+
+These are very common policies mandated by security organizations, and are increasingly common as organizations strive for Zero Trust.
 
 Based on the initial setup of the workshop described earlier, we can tell that to meet those requirements, we have some work to do!:
 1. We know that the webserver only listens for http traffic
@@ -168,11 +175,11 @@ Now that we have identified what we need to address based on the requirements, i
 
 # Section 2: PROTECT
 
-With our requirements in hand, let us begin the process of automating these requirements. We will begin by enabling SSL for the database. For MariaDB, this requires that we edit the database configuration file to define the CA Cert, Server Cert and Server Key. For the purpose of this workshop, we will be using self signed certificates that we will create but in a real environment, chances are that there will be a set of certificates already issued for that purpose, that however will not change much other than omit the need to generate those certificates, and instead copy them directly to the database server, so if anything it would be even easier.
+With our requirements in hand, let us begin the process of automating these requirements. We will begin by enabling SSL for the database. For MariaDB, this requires that we edit the database configuration file to define the CA Cert, Server Cert and Server Key. For the purpose of this workshop, we will be using self-signed certificates that we will create as part of the playbook. But in a real environment, certificates will generally be managed and supplied by existing enterprise processes.  So for production use, the process we demonstrate here will largely remain the same, but should be adjusted to deploy the supplied certificates instead of generating them.
 
 > **Tip**
 >
-> For more information on securing MariaDB connectuons, please look at the [docs](https://mariadb.com/kb/en/securing-connections-for-client-and-server/).
+> For more information on securing MariaDB connections, please look at the [docs](https://mariadb.com/kb/en/securing-connections-for-client-and-server/).
 
 ## Step 1 - Preparing your Project and Automation Controller
 
@@ -185,7 +192,7 @@ This workshop assumes you have a github account, and are familiar and comfortabl
 
 Next you will need to clone and configure your git project, The steps will differ if you are using your own machine wih your own IDE, or using the VSCode instance provisioned for you with theis workshop.
 
-Once everything is setup and ready, in your project directory, create a new folder named `collections` and in that folder create a file named `requirements.yml` to hold the information about the collections containing some of the modules that we will be using. Automation Controller is configured to download the collections in the `requirements.yml` file automatically when the project is synced.
+Once everything is set up and ready, in your project directory, create a new folder named `collections` and in that folder create a file named `requirements.yml` to hold the information about the collections containing some of the modules that we will be using. Automation Controller is configured to download the collections in the `requirements.yml` file automatically when the project is synced.
 
 Place the following in the `requirements.yml` file:
 
@@ -204,20 +211,22 @@ your directory structure in your project folder should look like this:
 ├── collections
 │   └── requirements.yml
 ```
-Commit and Push your files to github, and then move to Automation Controller. Log on to Automation Controller using your environment details, click **Projects** and click on the ![Add](images/add.png) icon. Use the following values for your new Project:
+Commit and Push your files to github, and then move to Automation Controller. 
 
-| Key                              | Value                                                                       | Note |
-|----------------------------------|-----------------------------------------------------------------------------|------|
-| Name                             | Security Workshop Project                                                   |      |
-| Description                      | Project containing Playbooks for the RHEL Security Workshop                 |      |
-| Organization                     | Default                                                                     |      |
-| Execution Environment            | Leave Blank                                                                 |      |
-| Source Control Type              | Git                                                                         |      |
-| Source Control URL               | Clone the URL of the git repo you created                                   |      |
-| Source Control Branch/Tag/Commit | Leave Blank                                                                 |      |
-| Source Control Refspec           | Leave Blank                                                                 |      |
-| Source Control Credential        | Leave Blank (Unless your repo is private, then choose your SCM credential)  |      |
-| Options                          | `Update Revision on Launch` Selected                                        |      |
+Log on to Automation Controller using your environment details, click **Projects** and click on the ![Add](images/add.png) icon. Use the following values for your new Project:
+
+| Key                              | Value                                                                       | Note                                                                                                   |
+|----------------------------------|-----------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------|
+| Name                             | Security Workshop Project                                                   |                                                                                                        |
+| Description                      | Project containing Playbooks for the RHEL Security Workshop                 |                                                                                                        |
+| Organization                     | Default                                                                     |                                                                                                        |
+| Execution Environment            | Leave Blank                                                                 |                                                                                                        |
+| Source Control Type              | Git                                                                         |                                                                                                        |
+| Source Control URL               | Copy the HTTPS web URL of the git repo you created                          |                                                                                                        |
+| Source Control Branch/Tag/Commit | Leave Blank                                                                 |                                                                                                        |
+| Source Control Refspec           | Leave Blank                                                                 |                                                                                                        |
+| Source Control Credential        | Leave Blank (Unless your repo is private, then choose your SCM credential)  |                                                                                                        |
+| Options                          | `Update Revision on Launch` Selected                                        | Each time a job runs using this project, update the revision of the project prior to starting the job. |
 
 
 Project Definition will look like this: ![New Project](images/security-project.png)
@@ -278,7 +287,6 @@ Next we will add our tasks to the play by adding the following to the same `setu
 
 ```yaml
   tasks:
-     
   - name: Make sure that the directory to hold keys and certs exist
     ansible.builtin.file:
       path: "{{ mariadb_certs_path }}"
@@ -340,6 +348,8 @@ Next we will add our tasks to the play by adding the following to the same `setu
       owner: "{{ mariadb_system_group }}"
       mode: 0660
     register: ca_crt
+
+  
 ```
 
 Looking at the set of tasks we just added:
